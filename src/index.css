@@ -1,8 +1,75 @@
-:root {
-  font-family: 'Matter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+/*
+  Josh's Custom CSS Reset
+  https://www.joshwcomeau.com/css/custom-css-reset/
+*/
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
+* {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    interpolate-size: allow-keywords;
+  }
+}
+
+body {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  overflow-wrap: break-word;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  text-wrap: balance;
+}
+
+#root,
+#__next {
+  isolation: isolate;
+}
+
+/* GLOBAL STYLES */
+html {
+  font-family: "Matter", system-ui, Avenir, Helvetica, Arial, sans-serif;
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
@@ -13,20 +80,6 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  display: flex;
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-
-
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -34,7 +87,53 @@ h1 {
   }
 }
 
+/* TYPOGRAPHY */
 @font-face {
   font-family: 'Matter';
   src: url('./assets/Matter-Regular.woff2') format('woff2');
+}
+
+* {
+  line-height: calc(1em + 0.5rem);
+}
+
+/* TODO FIGURE THIS OUT */
+:root {
+  /* Fluid typography that scales with viewport width */
+  --font-size-xs: clamp(1rem, calc(0.95rem + 0.25vw), 1.125rem);
+  --font-size-sm: clamp(1.125rem, calc(1.05rem + 0.375vw), 1.25rem);
+  --font-size-base: clamp(1.25rem, calc(1.15rem + 0.5vw), 1.375rem);
+  --font-size-lg: clamp(1.375rem, calc(1.25rem + 0.625vw), 1.5rem);
+  --font-size-xl: clamp(1.5rem, calc(1.35rem + 0.75vw), 1.75rem);
+  --font-size-2xl: clamp(1.75rem, calc(1.55rem + 1vw), 2.125rem);
+  --font-size-3xl: clamp(2.125rem, calc(1.85rem + 1.375vw), 2.75rem);
+  --font-size-4xl: clamp(2.5rem, calc(2.05rem + 2.25vw), 3.75rem);
+}
+
+h1 {
+  font-size: var(--font-size-4xl);
+}
+
+h2 {
+  font-size: var(--font-size-3xl);
+}
+
+h3 {
+  font-size: var(--font-size-2xl);
+}
+
+h4 {
+  font-size: var(--font-size-xl);
+}
+
+h5 {
+  font-size: var(--font-size-lg);
+}
+
+h6 {
+  font-size: var(--font-size-base);
+}
+
+p {
+  font-size: var(--font-size-sm);
 }
