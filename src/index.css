@@ -136,30 +136,25 @@ p {
   font-size: var(--font-size-sm);
 }
 
-.dragging {
-  opacity: .001;
+.font-family-card {
+  /* overflow: hidden; */
+  height: 100%;
+  width: 100%;
 }
 
-.font-family {
-  position: relative;
-  height: 100px;
-}
-
-.font-family:has(~ .dragging)>*,
-.dragging~.font-family>* {
-  transition: transform 0.2s ease-in-out;
-}
-
-/* All font families preceding the .dragging element AND following the .dragged-over element */
-/* Essentially when dragging upwards, all elements between the element that is being dragged and the element that is being dragged over */
-.font-family:has(~ .dragging):not(:has(~ .dragged-over)):not(.dragged-over-bottom)>* {
-  background-color: blue;
-  transform: translateY(100px);
-}
-
-
-.dragging~.font-family:has(~ .dragged-over)>*,
-.dragging~.font-family.dragged-over-bottom>* {
-  transform: translateY(-100px);
-  background-color: red;
+.font-family-card>h1 {
+  font-size: 100px !important;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1;
+  /* border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: left;
+  height: 100%;
+  width: 100%;
+  background-color: white; */
 }

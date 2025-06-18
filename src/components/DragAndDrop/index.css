@@ -1,0 +1,40 @@
+.draggable-item {
+  position: relative;
+  height: attr(data-height px);
+
+}
+
+.draggable-item:hover {
+  cursor: grab;
+}
+
+.draggable-item-content {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.draggable-item.is-dragging {
+  /* We want to hide the current element while dragging. 
+  /* But we still need it to be visible in DOM for the drag and drop pseudo element to be visible */
+  opacity: .001;
+}
+
+/* Selects all elements before and after the element being dragged */
+.draggable-item:has(~ .is-dragging)>.draggable-item-content,
+.is-dragging~.draggable-item>.draggable-item-content {
+  transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+}
+
+/* All elements between the .dragging element AND the .is-dragged-over element (when dragging upwards) */
+.draggable-item:has(~ .is-dragging):not(:has(~ .is-dragged-over)):not(.is-dragged-over-bottom)>.draggable-item-content {
+  transform: translateY(100%);
+  opacity: .4;
+}
+
+/* All elements between the .dragging element AND the .is-dragged-over element (when dragging downwards) */
+.is-dragging~.draggable-item:has(~ .is-dragged-over)>.draggable-item-content,
+.is-dragging~.draggable-item.is-dragged-over-bottom>.draggable-item-content {
+  transform: translateY(-100%);
+  opacity: .4;
+}
