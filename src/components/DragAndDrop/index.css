@@ -1,7 +1,6 @@
 .draggable-item {
   position: relative;
   height: attr(data-height px);
-
 }
 
 .draggable-item:hover {
@@ -11,7 +10,7 @@
 .draggable-item-content {
   height: 100%;
   width: 100%;
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 .draggable-item.is-dragging {

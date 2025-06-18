@@ -1,9 +1,13 @@
+import { useState } from 'react'
 import { AllFonts } from './AllFonts'
+import { NavigationTabs } from './components/NavigationTabs'
 import { useLoadLocalFonts } from './hooks/useLoadLocalFonts'
 
 function App() {
   // Destructure the result of useLoadLocalFonts hook
   const [{ loading, error, value: data, permissionStatus, hasBrowserSupport }, fetchFonts] = useLoadLocalFonts()
+
+  const [currentTab, setCurrentTab] = useState<'all-fonts' | 'favorites'>('all-fonts')
 
   // Check if the browser supports the Local Font Access API
   if (!hasBrowserSupport) {
@@ -33,7 +37,32 @@ function App() {
   // Render the loaded fonts data
   return (
     <div>
-      <AllFonts fontFamilies={data} />
+      <NavigationTabs currentTab={currentTab} onTabChange={setCurrentTab} />
+      <div>
+        <div style={{
+          flex: 1,
+          opacity: currentTab === 'all-fonts' ? 1 : 0,
+          position: currentTab === 'all-fonts' ? 'relative' : 'absolute',
+          transition: 'opacity 0.3s ease',
+          pointerEvents: currentTab === 'all-fonts' ? 'auto' : 'none',
+          visibility: currentTab === 'all-fonts' ? 'visible' : 'hidden',
+          height: currentTab === 'all-fonts' ? 'auto' : 0,
+          overflow: currentTab === 'all-fonts' ? 'visible' : 'hidden',
+        }}
+        >
+          <AllFonts fontFamilies={data} />
+        </div>
+        <div style={{
+          flex: 1,
+          opacity: currentTab === 'favorites' ? 1 : 0,
+          position: currentTab === 'favorites' ? 'relative' : 'absolute',
+          transition: 'opacity 0.3s ease',
+          pointerEvents: currentTab === 'favorites' ? 'auto' : 'none',
+        }}
+        >
+          {/* <Favorites fontFamilies={data} /> */}
+        </div>
+      </div>
     </div>
   )
 }

@@ -11,16 +11,18 @@ export const AllFonts = ({ fontFamilies }: { fontFamilies: FontFamiliesDictionar
       onDrop={saveNewOrder}
       renderItem={(family) => {
         return (
-          <div className="font-family-card">
-            <h1 style={{ fontFamily: family }}>{family}</h1>
-            <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem' }}>
-              {fontFamilies[family]?.map(font => (
-                <p key={font.postscriptName} style={{ fontFamily: font.postscriptName, whiteSpace: 'nowrap' }}>
-                  {font.style}
-                  {' '}
-                  /
-                </p>
-              ))}
+          <div className="font-family-card-container">
+            <div className="font-family-card">
+              <h1 style={{ fontFamily: family }}>{family}</h1>
+              <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem' }}>
+                {fontFamilies[family]?.map(font => (
+                  <p key={font.postscriptName} style={{ fontFamily: font.postscriptName, whiteSpace: 'nowrap' }}>
+                    {font.style}
+                    {' '}
+                    /
+                  </p>
+                ))}
+              </div>
             </div>
           </div>
         )
