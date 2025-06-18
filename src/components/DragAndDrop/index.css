@@ -23,6 +23,7 @@
 .draggable-item:has(~ .is-dragging)>.draggable-item-content,
 .is-dragging~.draggable-item>.draggable-item-content {
   transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+  pointer-events: none;
 }
 
 /* All elements between the .dragging element AND the .is-dragged-over element (when dragging upwards) */
