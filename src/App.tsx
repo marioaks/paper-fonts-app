@@ -34,8 +34,9 @@ function Content() {
     )
   }
 
+
   // If no data is available, show a button to request fonts
-  if (!data) {
+  if (!data || permissionStatus === 'prompt') {
     return <button onClick={fetchFonts} className="fetch-fonts-button">Request Fonts</button>
   }
 

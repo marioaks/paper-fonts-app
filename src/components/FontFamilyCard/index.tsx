@@ -47,9 +47,9 @@ export const FontFamilyCard = memo(({ id, fullName, fontStyles, isFavorite, upda
           <h1 className={styles.fontFamilyCardTitle} style={{ fontFamily: fullName }}>
             {fullName}
           </h1>
-          <div className={styles.fontFamilyCardStylesContainer}>
+          <p className={styles.fontFamilyCardStylesContainer}>
             {fontStyles?.map(font => (
-              <p key={font.postscriptName} className={styles.fontFamilyCardStylesText} style={{ fontFamily: font.postscriptName }}>
+              <span key={font.postscriptName} className={styles.fontFamilyCardStylesText} style={{ fontFamily: font.postscriptName }}>
                 {font.style}
                 {font !== fontStyles[fontStyles.length - 1] && (
                   <>
@@ -57,19 +57,21 @@ export const FontFamilyCard = memo(({ id, fullName, fontStyles, isFavorite, upda
                     /
                   </>
                 )}
-              </p>
+              </span>
             ))}
-          </div>
+          </p>
         </div>
 
-        <button
-          onClick={handleFavoriteClick}
-          className={styles.favoriteButton}
-          aria-label={localIsFavorite ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          <HeartIcon height={20} fill={localIsFavorite ? 'currentColor' : 'none'} />
-        </button>
-        <DragIcon height={20} color="var(--color-gray-300)" />
+        <div className={styles.fontFamilyCardActions}>
+          <button
+            onClick={handleFavoriteClick}
+            className={styles.favoriteButton}
+            aria-label={localIsFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <HeartIcon height={20} fill={localIsFavorite ? 'currentColor' : 'none'} />
+          </button>
+          <DragIcon height={20} color="var(--color-gray-300)" />
+        </div>
       </div>
     </div>
 

@@ -1,54 +1,103 @@
-# React + TypeScript + Vite
+# Paper Fonts App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + TypeScript application that displays local font families using the Local Font Access API.
 
-Currently, two official plugins are available:
+## Exercise Requirements Checklist
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Core Functionality
+- [x] **Present a list of font families available on the user's computer**
+  - [x] Uses Local Font Access API to fetch system fonts
+  - [x] Displays list of available font families
 
-## Expanding the ESLint configuration
+- [x] **Show individual font styles associated with each font family**
+  - [x] FontFamilyCard component displays all available styles for each family
+  - [x] Each style is rendered using its actual font to show visual differences
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- [x] **Two tabs: "All" and "Favorites"**
+  - [x] NavBar component with tab switching functionality
+  - [x] "All fonts" tab showing complete font list
+  - [x] "Favorites" tab showing only favorited fonts
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- [x] **Favoriting functionality**
+  - [x] Heart icon button to add/remove fonts from favorites
+  - [x] Double-click to favorite/unfavorite fonts
+  - [x] Persistent favorites using localStorage
+  - [x] Smooth animations for unfavorite transitions
+  - [x] Favorited fonts appear in the Favorites tab
+
+- [x] **Drag to reorder favorites (without external libraries)**
+  - [x] Custom drag-and-drop implementation
+  - [x] Reorder functionality works in both tabs
+  - [x] Persistent reordering using localStorage
+  - [x] Visual feedback during drag operations
+
+### UI/UX Features
+- [x] **Performance considerations**
+  - [x] Memoized components to prevent unnecessary re-renders
+  - [x] Debounced favorite actions
+  - [x] Efficient drag and drop
+
+- [x] **Error handling**
+  - [x] Browser compatibility checks
+  - [x] Permission denied states
+  - [x] Loading states
+  - [x] Error recovery options
+
+### Additional Features Implemented
+- [x] **Font size toggle**
+  - [x] FontSizeToggleGroup component for adjusting preview text size
+
+- [x] **Smooth animations**
+  - [x] Favorite/unfavorite transitions
+  - [x] Drag and drop visual feedback
+
+## Known Issues / TODOs
+
+### Bug Fixes
+- [ ] **Fix hover styles bug after drag and drop**
+  - Issue: Wrong element retains hover styles after dragging and dropping
+  - Need to properly clean up hover states during drag operations
+
+### Performance Improvements
+- [ ] **Implement virtualization for font lists**
+  - Large font lists can impact performance
+  - Implement virtual scrolling for better performance with 1000+ fonts
+  - Note: Current drag-and-drop implementation would need refactoring to work with virtualization
+
+### Future Enhancements
+- [ ] **Search and filtering functionality**
+  - Add search input to filter fonts by name
+  - Category filtering (serif, sans-serif, monospace, etc.)
+
+- [ ] **Font preview improvements**
+  - Custom preview text input
+  - Multiple preview sizes simultaneously
+  - Export font samples
+
+- [ ] **Enhanced drag and drop**
+  - Visual placeholders during drag
+  - Drag between All and Favorites tabs
+  - Multi-select drag operations
+
+## Development
+
+### Setup
+```bash
+bun install
+bun run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Browser Requirements
+- Chrome 103+ (Local Font Access API support)
+- Enable "Experimental Web Platform features" flag if needed
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Architecture
+- **Components**: Modular React components with CSS modules
+- **Hooks**: Custom hooks for state management and side effects
+- **State**: useReducer for complex state, localStorage for persistence
+- **Types**: Comprehensive TypeScript definitions
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+---
+
+**Time spent:** ~8 hours  
+**Technologies:** React, TypeScript, Vite, Local Font Access API
