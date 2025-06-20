@@ -80,6 +80,10 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
+body {
+  padding: 2rem;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -107,11 +111,102 @@ html {
   --font-size-3xl: 2.125rem;
   --font-size-4xl: 2.5rem;
 
-  --color-primary: rgb(138, 171, 231);
+  --color-primary: oklch(75% 0.15 264deg);
 }
 
-body {
-  padding: 2rem;
+:root {
+  --color-blue: oklch(45% 50% 264deg);
+  --color-red: oklch(50% 55% 31deg);
+
+  /* Start of Selection */
+  --color-gray-50: oklch(98.42% 0.0034 247.86deg);
+  --color-gray-100: oklch(12% 9.5% 264deg / 5%);
+  --color-gray-200: oklch(12% 9% 264deg / 8%);
+  --color-gray-300: oklch(12% 8.5% 264deg / 17%);
+  --color-gray-400: oklch(12% 8% 264deg / 38%);
+  --color-gray-500: oklch(12% 7.5% 264deg / 50%);
+  --color-gray-600: oklch(12% 7% 264deg / 67%);
+  --color-gray-700: oklch(12% 6% 264deg / 77%);
+  --color-gray-800: oklch(12% 5% 264deg / 85%);
+  --color-gray-900: oklch(12% 5% 264deg / 90%);
+  --color-gray-950: oklch(12% 5% 264deg / 95%);
+
+  --color-blue-50: oklch(98% 0.01 264deg);
+  --color-blue-100: oklch(95% 0.05 264deg);
+  --color-blue-200: oklch(90% 0.1 264deg);
+  --color-blue-300: oklch(85% 0.15 264deg);
+  --color-blue-400: oklch(80% 0.2 264deg);
+  --color-blue-500: oklch(75% 0.25 264deg);
+  --color-blue-600: oklch(70% 0.3 264deg);
+  --color-blue-700: oklch(65% 0.35 264deg);
+  --color-blue-800: oklch(60% 0.4 264deg);
+  --color-blue-900: oklch(55% 0.45 264deg);
+  --color-blue-950: oklch(50% 0.5 264deg);
+
+  @media (prefers-color-scheme: dark) {
+    --color-blue: oklch(69% 50% 264deg);
+    --color-red: oklch(80% 55% 31deg);
+
+    --color-gray-50: oklch(17% 1% 264deg);
+    --color-gray-100: oklch(28% 3% 264deg / 65%);
+    --color-gray-200: oklch(31% 3% 264deg / 80%);
+    --color-gray-300: oklch(35% 3% 264deg / 80%);
+    --color-gray-400: oklch(47% 3.5% 264deg / 80%);
+    --color-gray-500: oklch(64% 4% 264deg / 80%);
+    --color-gray-600: oklch(82% 4% 264deg / 80%);
+    --color-gray-700: oklch(92% 4.5% 264deg / 80%);
+    --color-gray-800: oklch(93% 3.5% 264deg / 85%);
+    --color-gray-900: oklch(95% 2% 264deg / 90%);
+    --color-gray-950: oklch(94% 1.5% 264deg / 95%);
+
+    --color-blue-50: oklch(20% 0.05 264deg);
+    --color-blue-100: oklch(25% 0.1 264deg);
+    --color-blue-200: oklch(30% 0.15 264deg);
+    --color-blue-300: oklch(35% 0.2 264deg);
+    --color-blue-400: oklch(40% 0.25 264deg);
+    --color-blue-500: oklch(45% 0.3 264deg);
+    --color-blue-600: oklch(50% 0.35 264deg);
+    --color-blue-700: oklch(55% 0.4 264deg);
+    --color-blue-800: oklch(60% 0.45 264deg);
+    --color-blue-900: oklch(65% 0.5 264deg);
+    --color-blue-950: oklch(70% 0.55 264deg);
+  }
+}
+
+/* End of Selection */
+
+:root {
+  --color-blue: oklch(45% 50% 264deg);
+  --color-red: oklch(50% 55% 31deg);
+
+  --color-gray-50: oklch(98.42% 0.0034 247.86deg);
+  --color-gray-100: oklch(12% 9.5% 264deg / 5%);
+  --color-gray-200: oklch(12% 9% 264deg / 8%);
+  --color-gray-300: oklch(12% 8.5% 264deg / 17%);
+  --color-gray-400: oklch(12% 8% 264deg / 38%);
+  --color-gray-500: oklch(12% 7.5% 264deg / 50%);
+  --color-gray-600: oklch(12% 7% 264deg / 67%);
+  --color-gray-700: oklch(12% 6% 264deg / 77%);
+  --color-gray-800: oklch(12% 5% 264deg / 85%);
+  --color-gray-900: oklch(12% 5% 264deg / 90%);
+  --color-gray-950: oklch(12% 5% 264deg / 95%);
+
+  @media (prefers-color-scheme: dark) {
+    --color-blue: oklch(69% 50% 264deg);
+    --color-red: oklch(80% 55% 31deg);
+
+    --color-gray-50: oklch(17% 1% 264deg);
+    --color-gray-100: oklch(28% 3% 264deg / 65%);
+    --color-gray-200: oklch(31% 3% 264deg / 80%);
+    --color-gray-300: oklch(35% 3% 264deg / 80%);
+    --color-gray-400: oklch(47% 3.5% 264deg / 80%);
+    --color-gray-500: oklch(64% 4% 264deg / 80%);
+    --color-gray-600: oklch(82% 4% 264deg / 80%);
+    --color-gray-700: oklch(92% 4.5% 264deg / 80%);
+    --color-gray-800: oklch(93% 3.5% 264deg / 85%);
+    --color-gray-900: oklch(95% 2% 264deg / 90%);
+    --color-gray-950: oklch(94% 1.5% 264deg / 95%);
+  }
 }
 
 h1 {
@@ -142,52 +237,10 @@ p {
   font-size: var(--font-size-sm);
 }
 
-
-
-.font-family-card-container {
-  padding-bottom: .5rem;
-  height: 100%;
-  width: 100%;
-}
-
-.font-family-card {
-  padding: 10px;
+.favorites-container .unfavoriting-transition {
+  max-height: 0;
   overflow: hidden;
-  /* padding: 2rem; */
-  /* border: 1px solid var(--color-primary); */
-  /* margin-bottom: 1rem; */
-  background-color: rgba(138, 171, 231, 0.1);
-  border-radius: 8px;
-  /* padding: 1rem; */
-  /* overflow: hidden; */
-  height: 100%;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  /* align-items: center; */
-  justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.font-family-card:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 0 10px 0 rgba(138, 171, 231, 0.2);
-  background: var(--color-primary);
-}
-
-.font-family-card>h1 {
-  font-size: 75px !important;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  /* line-height: 1; */
-  /* border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 1rem;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: left;
-  height: 100%;
-  width: 100%;
-  background-color: white; */
+  opacity: 0;
+  padding: 0;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }

@@ -8,7 +8,7 @@ import useAsyncFn from './useAsync'
  * 1. Font data object with:
  *    - loading: boolean
  *    - error: Error | null
- *    - data: Record<string (family name), FontData[]>
+ *    - data: Record<string (family name), FontFamily>
  *    - permissionStatus: PermissionState
  *    - hasBrowserSupport: boolean
  * 2. Function to trigger font fetching
@@ -28,7 +28,21 @@ export function useLoadLocalFonts() {
 
     // Fetch available fonts and group them by family
     const availableFonts = await window.queryLocalFonts()
-    return Object.groupBy(availableFonts, font => font.family)
+
+    // Group fonts by family
+    return availableFonts.reduce<FontFamiliesDictionary>((acc, font) => {
+      // Create a unique ID for the family by replacing spaces with hyphens
+      const familyId = font.family.toLowerCase().replace(/\s+/g, '-')
+      const currentFamily = acc[familyId]
+      return {
+        ...acc,
+        [familyId]: {
+          id: familyId,
+          fullName: font.family,
+          styles: [...(currentFamily?.styles || []), font],
+        },
+      }
+    }, {} as FontFamiliesDictionary)
   }, [permissionStatus])
 
   return [{ ...asyncData, permissionStatus, hasBrowserSupport }, fetchFonts] as const

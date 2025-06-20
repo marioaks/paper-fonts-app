@@ -19,10 +19,10 @@ export function arrayToIndexLookup(arr: string[]): Record<string, number> {
    * @param indexLookup - Record<string, number> mapping each string to its index
    * @returns Sorted array of strings
    */
-export const sortArrayByIndexLookup = (arr: string[], indexLookup: Record<string, number>) => {
+export const sortArrayByIndexLookup = (arr: string[], indexLookup: Record<string, number>, sortMissingAtFront: boolean = false) => {
   return arr.sort((a, b) => {
-    const orderA = indexLookup[a] ?? Infinity
-    const orderB = indexLookup[b] ?? Infinity
+    const orderA = indexLookup[a] ?? (sortMissingAtFront ? -Infinity : Infinity)
+    const orderB = indexLookup[b] ?? (sortMissingAtFront ? -Infinity : Infinity)
 
     if (orderA === orderB) {
       return a.localeCompare(b)

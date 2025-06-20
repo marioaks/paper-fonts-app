@@ -1,13 +1,13 @@
-import { ALL_FONTS_SORT_ORDER_KEY, FAVORITE_FONTS_DICTIONARY_KEY, FAVORITE_FONTS_SORT_ORDER_KEY } from '../constants'
+import { ALL_FONTS_SORT_ORDER_KEY, FAVORITE_FONTS_LIST_KEY, FAVORITE_FONTS_SORT_ORDER_KEY } from '../constants'
 import { arrayToIndexLookup } from './arrayHelpers'
 
 export const getFavoriteFontFamiliesFromLocalStorage = () => {
-  const favoriteFontFamilies: FavoriteFontFamiliesDictionary = JSON.parse(localStorage.getItem(FAVORITE_FONTS_DICTIONARY_KEY) || '{}')
+  const favoriteFontFamilies: Set<string> = new Set(JSON.parse(localStorage.getItem(FAVORITE_FONTS_LIST_KEY) || '[]'))
   return favoriteFontFamilies
 }
 
-export const saveFavoriteFontFamiliesToLocalStorage = (favoriteFontFamilies: FavoriteFontFamiliesDictionary) => {
-  localStorage.setItem(FAVORITE_FONTS_DICTIONARY_KEY, JSON.stringify(favoriteFontFamilies))
+export const saveFavoriteFontFamiliesToLocalStorage = (favoriteFontFamilies: Set<string>) => {
+  localStorage.setItem(FAVORITE_FONTS_LIST_KEY, JSON.stringify([...favoriteFontFamilies]))
 }
 
 export const getSavedSortOrderFromLocalStorage = (type: 'all' | 'favorites') => {

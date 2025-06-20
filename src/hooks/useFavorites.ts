@@ -3,6 +3,31 @@
  * Returns a record of favorite fonts and a function to toggle a font's favorite status.
  */
 
+import { useCallback, useState } from 'react'
+import { getFavoriteFontFamiliesFromLocalStorage, saveFavoriteFontFamiliesToLocalStorage } from '../utils/localStorage'
+
+export function useFontFavorites() {
+  const [favorites, setFavorites] = useState<Set<string>>(
+    getFavoriteFontFamiliesFromLocalStorage(),
+  )
+
+  const toggleFavorite = useCallback((family: string) => {
+    setFavorites((prev) => {
+      const newState = new Set(prev)
+      if (prev.has(family)) {
+        newState.delete(family)
+      }
+      else {
+        newState.add(family)
+      }
+      saveFavoriteFontFamiliesToLocalStorage(newState)
+      return newState
+    })
+  }, [])
+
+  return [favorites, toggleFavorite] as const
+}
+
 // TODO MAKE THIS A USEREDUCER WITH A TOGGLE FAVORITE AND A RESORT FUNCTION!!
 // export function useFontFavorites() {
 //   const [favorites, setFavorites] = useState<Record<string, boolean>>(

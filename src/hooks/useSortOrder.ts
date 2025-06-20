@@ -1,18 +1,24 @@
 import { useCallback, useMemo } from 'react'
 import { sortArrayByIndexLookup } from '../utils/arrayHelpers'
-import { getFavoriteFontFamiliesFromLocalStorage, getSavedSortOrderFromLocalStorage, saveSortOrderToLocalStorage } from '../utils/localStorage'
+import { getSavedSortOrderFromLocalStorage, saveSortOrderToLocalStorage } from '../utils/localStorage'
 
 export function useAllFontsLocalStorageSortOrder(fontFamilies: FontFamiliesDictionary) {
   return useFontSortOrderHelper('all', fontFamilies)
 }
 
-export function useFavoriteFontsLocalStorageSortOrder(fontFamilies: FontFamiliesDictionary) {
-  return useFontSortOrderHelper('favorites', fontFamilies)
+export function useFavoriteFontsLocalStorageSortOrder(fontFamilies: FontFamiliesDictionary, favorites: Set<string>) {
+  const [sortedFontFamilies, updateSortOrder] = useFontSortOrderHelper('favorites', fontFamilies)
+
+  const filteredSortedFontFamilies = useMemo(() => {
+    return sortedFontFamilies.filter(family => favorites.has(family))
+  }, [sortedFontFamilies, favorites])
+
+  return [filteredSortedFontFamilies, updateSortOrder] as const
 }
 
 /**
- * Hook to manage the order of font families in localStorage.
- * Initializes the sort order from localStorage and updates it with the current local font list.
+ * Hook to manage the order of font families
+ * Initializes the sort order from localStorage and make sure that it's up to date with the current local font list.
  *
  * @param key - The key to use for localStorage
  * @param fontFamilies - The font families from local-fonts API to sort
@@ -30,13 +36,7 @@ function useFontSortOrderHelper(type: 'all' | 'favorites', fontFamilies: FontFam
     const sortOrderLookup = getSavedSortOrderFromLocalStorage(type)
 
     // Sort fonts from API based on saved order, putting unsaved fonts at the end
-    let newReconciledSortOrder = sortArrayByIndexLookup(allFontFamilyKeys, sortOrderLookup)
-
-    // For favorites, only include fonts that are actually favorited
-    if (type === 'favorites') {
-      const favoriteFontFamilies = getFavoriteFontFamiliesFromLocalStorage()
-      newReconciledSortOrder = newReconciledSortOrder.filter(family => favoriteFontFamilies[family])
-    }
+    const newReconciledSortOrder = sortArrayByIndexLookup(allFontFamilyKeys, sortOrderLookup, type === 'favorites')
 
     saveSortOrderToLocalStorage(type, newReconciledSortOrder)
     return newReconciledSortOrder

@@ -10,12 +10,10 @@ import './index.css'
 
 type Props = {
   id: string
-  height: number
 }
 
 export const DragAndDropItem = ({
   id,
-  height,
   children,
   ...props
 }: React.PropsWithChildren<Props>) => {
@@ -24,7 +22,6 @@ export const DragAndDropItem = ({
       id={id}
       draggable
       className="draggable-item"
-      data-height={height}
 
       // Draggable element events
       onDragStart={helpers.handleDragStart}

@@ -1,18 +1,23 @@
 // Global type definitions for the Local Font Access API
 declare global {
   interface Window {
-    queryLocalFonts?: (postscriptNames?: string[]) => Promise<FontData[]>
+    queryLocalFonts?: (postscriptNames?: string[]) => Promise<Font[]>
   }
 
-  interface FontData {
+  type Font = {
     postscriptName: string
     fullName: string
-    family: string
     style: string
+    family: string
   }
 
-  type FontFamiliesDictionary = Partial<Record<string, FontData[]>>
-  type FavoriteFontFamiliesDictionary = Record<string, boolean>
+  interface FontFamily {
+    id: string
+    fullName: string
+    styles: APIFont[]
+  }
+
+  type FontFamiliesDictionary = Record<string, FontFamily>
 }
 
 export { }

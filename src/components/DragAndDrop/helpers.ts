@@ -11,20 +11,21 @@ export function handleDragStart(ev: React.DragEvent<HTMLDivElement>) {
   ev.dataTransfer.setData('text/plain', ev.currentTarget.id)
   ev.dataTransfer.effectAllowed = 'move'
 
+  const draggedEl = ev.currentTarget
+  const draggedElHeight = draggedEl.getBoundingClientRect().height
+
   // Add the dragging class to the element
-  // Add is-dragged-over to prevent a css flicker
   ev.currentTarget.classList.add('is-dragging')
-  ev.currentTarget.classList.add('is-dragged-over')
+
+  const list = ev.currentTarget.closest('.drag-and-drop-list') as HTMLElement
+  list.style.setProperty('--dragged-height', `${draggedElHeight}px`)
 }
 
 // Function to handle the end of a drag operation
 // Useful for cases where the dragged element is dropped outside of a drop target
 export function handleDragEnd(ev: React.DragEvent<HTMLDivElement>) {
   ev.preventDefault()
-
-  // Remove the dragging classes when the drag ends
   ev.currentTarget.classList.remove('is-dragging')
-  ev.currentTarget.classList.remove('is-dragged-over')
 }
 
 /**
@@ -39,7 +40,7 @@ export function handleDragEnter(ev: React.DragEvent<HTMLDivElement>) {
   ev.preventDefault()
 
   // Add is-dragged-over whenever a dragged element enters a drop target
-  ev.currentTarget.classList.add('is-dragged-over')
+  ev.currentTarget.classList.add('drop-target-hovered')
 }
 
 // Function to handle when a dragged element is over a drop target
@@ -55,12 +56,12 @@ export function handleDragOver(ev: React.DragEvent<HTMLDivElement>) {
   const isTopHalf = y < rect.height / 2
 
   if (isTopHalf) {
-    ev.currentTarget.classList.add('is-dragged-over-top')
-    ev.currentTarget.classList.remove('is-dragged-over-bottom')
+    ev.currentTarget.classList.add('drop-target-hovered-top')
+    ev.currentTarget.classList.remove('drop-target-hovered-bottom')
   }
   else {
-    ev.currentTarget.classList.add('is-dragged-over-bottom')
-    ev.currentTarget.classList.remove('is-dragged-over-top')
+    ev.currentTarget.classList.add('drop-target-hovered-bottom')
+    ev.currentTarget.classList.remove('drop-target-hovered-top')
   }
 }
 
@@ -70,9 +71,10 @@ export function handleDragLeave(ev: React.DragEvent<HTMLDivElement>) {
 
   // Remove is-dragged-over if the dragged element leaves the drop target
   if (!ev.currentTarget.contains(ev.relatedTarget as Node)) {
-    ev.currentTarget.classList.remove('is-dragged-over')
-    ev.currentTarget.classList.remove('is-dragged-over-top')
-    ev.currentTarget.classList.remove('is-dragged-over-bottom')
+    ev.currentTarget.classList.remove('drop-target-hovered')
+    ev.currentTarget.classList.remove('drop-target-hovered-top')
+    ev.currentTarget.classList.remove('drop-target-hovered-bottom')
+    ev.currentTarget.removeAttribute('data-dragged-height')
   }
 }
 
@@ -81,15 +83,17 @@ export function handleDrop(ev: React.DragEvent<HTMLDivElement>) {
   ev.preventDefault()
 
   const draggedId = ev.dataTransfer.getData('text/plain')
-  const draggedElement = document.getElementById(draggedId)
-  if (ev.currentTarget.classList.contains('is-dragged-over-top'))
+  const list = ev.currentTarget.closest('.drag-and-drop-list') as HTMLElement
+  const draggedElement = list.querySelector(`#${draggedId}`)
+
+  if (ev.currentTarget.classList.contains('drop-target-hovered-top'))
     ev.currentTarget?.before(draggedElement as Node)
   else
     ev.currentTarget?.after(draggedElement as Node)
 
   // Remove the dragging classes when the drag ends
   draggedElement?.classList.remove('is-dragging')
-  ev.currentTarget.classList.remove('is-dragged-over')
-  ev.currentTarget.classList.remove('is-dragged-over-top')
-  ev.currentTarget.classList.remove('is-dragged-over-bottom')
+  ev.currentTarget.classList.remove('drop-target-hovered')
+  ev.currentTarget.classList.remove('drop-target-hovered-top')
+  ev.currentTarget.classList.remove('drop-target-hovered-bottom')
 }

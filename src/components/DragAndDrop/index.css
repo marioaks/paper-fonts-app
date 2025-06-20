@@ -1,40 +1,94 @@
 .draggable-item {
   position: relative;
-  height: attr(data-height px);
 }
 
 .draggable-item:hover {
   cursor: grab;
 }
 
+.draggable-item:active {
+  cursor: grabbing;
+}
+
 .draggable-item-content {
   height: 100%;
   width: 100%;
-  /* overflow: hidden; */
+  opacity: 1;
+  transition: opacity 0.2s ease-in-out;
 }
 
+/* ============================================
+ * DRAG AND DROP ANIMATION EFFECTS
+ * ============================================ */
+
+/*
+ * HIDE DRAGGING ELEMENT
+ * We want to hide the current element while dragging. 
+ * But we still need it to be visible in DOM for the drag and drop pseudo element to be visible
+ */
 .draggable-item.is-dragging {
-  /* We want to hide the current element while dragging. 
-  /* But we still need it to be visible in DOM for the drag and drop pseudo element to be visible */
   opacity: .001;
 }
 
-/* Selects all elements before and after the element being dragged */
-.draggable-item:has(~ .is-dragging)>.draggable-item-content,
-.is-dragging~.draggable-item>.draggable-item-content {
+/* 
+ * Base transition applied to all draggable elements when list dragging is active
+ * This provides smooth animations during drag operations
+ */
+.drag-and-drop-list:has(.drop-target-hovered)>.draggable-item>.draggable-item-content {
   transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
   pointer-events: none;
 }
 
-/* All elements between the .dragging element AND the .is-dragged-over element (when dragging upwards) */
-.draggable-item:has(~ .is-dragging):not(:has(~ .is-dragged-over)):not(.is-dragged-over-bottom)>.draggable-item-content {
-  transform: translateY(100%);
+/* 
+ * DRAGGING UPWARDS ANIMATION
+ * Targets: Elements between the dragging element's original position and the current drop target below it
+ * Effect: These elements slide down to fill the space left by the dragging element
+ */
+.drag-and-drop-list:has(.drop-target-hovered)>.draggable-item:has(~ .is-dragging):not(:has(~ .drop-target-hovered)):not(.drop-target-hovered-bottom)>.draggable-item-content {
+  /* background-color: blue; */
+  transform: translateY(var(--dragged-height));
   opacity: .4;
 }
 
-/* All elements between the .dragging element AND the .is-dragged-over element (when dragging downwards) */
-.is-dragging~.draggable-item:has(~ .is-dragged-over)>.draggable-item-content,
-.is-dragging~.draggable-item.is-dragged-over-bottom>.draggable-item-content {
-  transform: translateY(-100%);
+/* 
+ * DRAGGING DOWNWARD ANIMATION
+ * Targets: Elements between the dragging element's original position and the current drop target above it
+ * Effect: These elements slide up to fill the space left by the dragging element
+ */
+.drag-and-drop-list:has(.drop-target-hovered)>.is-dragging~.draggable-item:has(~ .drop-target-hovered)>.draggable-item-content,
+.drag-and-drop-list:has(.drop-target-hovered)>.is-dragging~.draggable-item.drop-target-hovered-bottom>.draggable-item-content {
+  /* background-color: red; */
+  transform: translateY(calc(var(--dragged-height) * -1));
   opacity: .4;
 }
+
+/* ============================================
+ * SELECTOR EXPLANATION GUIDE
+ * ============================================
+ * 
+ * Breaking down the complex selectors:
+ * 
+ * .dragAndDropList:has(.drop-target-hovered)
+ * └── Only when the drag list contains an element being dragged over
+ * 
+ * > .draggable-item
+ * └── Direct child draggable items of the drag list
+ * 
+ * :has(~ .is-dragging)
+ * └── Items that have a dragging sibling element after them in the DOM
+ * 
+ * :not(:has(~ .drop-target-hovered))
+ * └── Exclude items that have a dragged-over sibling after them
+ * 
+ * :not(.drop-target-hovered-bottom)
+ * └── Exclude items where the user is dragging over the bottom half
+ * 
+ * .is-dragging ~ .draggable-item
+ * └── Items that come after the dragging element in the DOM
+ * 
+ * :has(~ .drop-target-hovered)
+ * └── Items that have a dragged-over sibling after them
+ * 
+ * This creates the visual effect where elements "make room" for the 
+ * dragging element by sliding up or down based on drag direction.
+ * ============================================ */

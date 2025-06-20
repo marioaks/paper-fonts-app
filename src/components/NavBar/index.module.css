@@ -1,0 +1,68 @@
+.List {
+    box-sizing: border-box;
+    display: flex;
+    position: sticky;
+    /* background-color: var(--color-gray-50); */
+    top: 2rem;
+    padding: 0.25rem;
+    border-radius: 0.5rem;
+    border-block-end: 0.25rem solid transparent;
+    border-block-start: 0.25rem solid transparent;
+    z-index: 1;
+    background: rgba(139, 177, 255, 0.1);
+    backdrop-filter: blur(8px);
+    margin-bottom: 1rem;
+    align-items: center;
+}
+
+.Trigger {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 2.5rem;
+    padding: 0 0.875rem;
+    margin: 0;
+    outline: 0;
+    border: none;
+    border-radius: 0.375rem;
+    background-color: transparent;
+    color: var(--color-gray-600);
+    user-select: none;
+
+    &[data-selected] {
+        color: var(--color-blue-600);
+    }
+
+    @media (hover: hover) {
+        &:hover {
+            color: var(--color-blue-600);
+        }
+    }
+}
+
+.Panel {
+    &[hidden] {
+        display: none;
+    }
+}
+
+.Indicator {
+    position: absolute;
+    z-index: -1;
+    left: 0;
+    top: 50%;
+    translate: var(--active-tab-left) -50%;
+    width: var(--active-tab-width);
+    height: 100%;
+    border-radius: 0.25rem;
+    background-color: var(--color-blue-100);
+    transition-property: translate, width;
+    transition-duration: 200ms;
+    transition-timing-function: ease-in-out;
+}
+
+.Extra {
+    margin-left: auto;
+}

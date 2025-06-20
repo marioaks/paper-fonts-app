@@ -1,17 +1,23 @@
+import { forwardRef, useId } from 'react'
 import { DragAndDropItem } from './Item'
+import './index.css'
 
 type Props = {
   sortOrder: string[]
-  itemHeight: number
   renderItem(item: string): React.ReactNode
   onDrop?(newSortOrder: string[]): void
 }
 
-export const DragAndDropList = ({ sortOrder, renderItem, itemHeight = 100, onDrop }: Props) => {
+export const DragAndDropList = forwardRef<HTMLDivElement, Props>(({ sortOrder, renderItem, onDrop }, ref) => {
+  const listId = useId()
   return (
     <div
+      id={listId}
+      ref={ref}
       className="drag-and-drop-list"
       onDrop={(e) => {
+        // Gets all elements from the DOM to get the new sort order
+        // NOTE: If we were to virtualize this list, this wouldn't work
         const newSortOrder = Array.from(e.currentTarget.children).map(child => child.id)
         onDrop?.(newSortOrder)
       }}
@@ -19,9 +25,8 @@ export const DragAndDropList = ({ sortOrder, renderItem, itemHeight = 100, onDro
       {sortOrder.map((item) => {
         return (
           <DragAndDropItem
-            key={item}
+            key={`${listId}-${item}`}
             id={item}
-            height={itemHeight}
           >
             {renderItem?.(item)}
           </DragAndDropItem>
@@ -29,4 +34,4 @@ export const DragAndDropList = ({ sortOrder, renderItem, itemHeight = 100, onDro
       })}
     </div>
   )
-}
+})

@@ -1,13 +1,15 @@
-import { useState } from 'react'
 import { AllFonts } from './AllFonts'
-import { NavigationTabs } from './components/NavigationTabs'
+import FontFileIcon from './assets/icons/FontFileIcon'
+import HeartIcon from './assets/icons/HeartIcon'
+import { FontSizeToggleGroup } from './components/FontSizeToggleGroup'
+import NavBar from './components/NavBar'
+import { Favorites } from './Favorites'
+import { useFontFavorites } from './hooks/useFavorites'
 import { useLoadLocalFonts } from './hooks/useLoadLocalFonts'
 
-function App() {
+function Content() {
   // Destructure the result of useLoadLocalFonts hook
   const [{ loading, error, value: data, permissionStatus, hasBrowserSupport }, fetchFonts] = useLoadLocalFonts()
-
-  const [currentTab, setCurrentTab] = useState<'all-fonts' | 'favorites'>('all-fonts')
 
   // Check if the browser supports the Local Font Access API
   if (!hasBrowserSupport) {
@@ -16,12 +18,20 @@ function App() {
 
   // Check if permission to access local fonts is denied
   if (permissionStatus === 'denied') {
-    return <p>Local Font Access API permission denied. Please allow access to local fonts.</p>
+    return <p>Local Font Access API permission denied. Please allow access to local fonts in your browser settings.</p>
   }
 
   // If there is an error, show a button to request fonts again
   if (error) {
-    return <button onClick={fetchFonts}>Request Fonts</button>
+    return (
+      <div>
+        <p>
+          Something went wrong:
+          {error.message}
+        </p>
+        <button onClick={fetchFonts}>Try again</button>
+      </div>
+    )
   }
 
   // If no data is available, show a button to request fonts
@@ -34,35 +44,53 @@ function App() {
     return <p>Loading...</p>
   }
 
-  // Render the loaded fonts data
+  return <Fonts data={data} />
+}
+
+function Fonts({ data }: { data: FontFamiliesDictionary }) {
+  const [favorites, toggleFavorite] = useFontFavorites()
+
+  return (
+    <NavBar
+      defaultValue="all-fonts"
+      options={[
+        { value: 'all-fonts',
+          tab: {
+            children: 'All fonts',
+            icon: <FontFileIcon height={16} />,
+          },
+          panel: {
+            children: <AllFonts fontFamilies={data} favorites={favorites} toggleFavorite={toggleFavorite} />,
+            keepMounted: true,
+          },
+        },
+        {
+          value: 'favorites',
+          tab: {
+            children: 'Favorites',
+            icon: <HeartIcon height={16} />,
+          },
+          panel: {
+            children: <Favorites fontFamilies={data} favorites={favorites} toggleFavorite={toggleFavorite} />,
+            keepMounted: true,
+          },
+        },
+      ]}
+      extra={(
+        <FontSizeToggleGroup />
+      )}
+    />
+  )
+}
+
+function App() {
   return (
     <div>
-      <NavigationTabs currentTab={currentTab} onTabChange={setCurrentTab} />
-      <div>
-        <div style={{
-          flex: 1,
-          opacity: currentTab === 'all-fonts' ? 1 : 0,
-          position: currentTab === 'all-fonts' ? 'relative' : 'absolute',
-          transition: 'opacity 0.3s ease',
-          pointerEvents: currentTab === 'all-fonts' ? 'auto' : 'none',
-          visibility: currentTab === 'all-fonts' ? 'visible' : 'hidden',
-          height: currentTab === 'all-fonts' ? 'auto' : 0,
-          overflow: currentTab === 'all-fonts' ? 'visible' : 'hidden',
-        }}
-        >
-          <AllFonts fontFamilies={data} />
-        </div>
-        <div style={{
-          flex: 1,
-          opacity: currentTab === 'favorites' ? 1 : 0,
-          position: currentTab === 'favorites' ? 'relative' : 'absolute',
-          transition: 'opacity 0.3s ease',
-          pointerEvents: currentTab === 'favorites' ? 'auto' : 'none',
-        }}
-        >
-          {/* <Favorites fontFamilies={data} /> */}
-        </div>
-      </div>
+      <h1 style={{ color: 'var(--color-gray-600)' }}>
+        Your Local Fonts
+      </h1>
+      <h4 style={{ marginBottom: '2rem', color: 'var(--color-primary)' }}>Presented by Paper</h4>
+      <Content />
     </div>
   )
 }
