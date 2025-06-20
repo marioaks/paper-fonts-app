@@ -1,14 +1,15 @@
-import { DragAndDropList } from './components/DragAndDrop/List'
-import { FontFamilyCard } from './components/FontFamilyCard'
-import { useFavoriteFontsLocalStorageSortOrder } from './hooks/useSortOrder'
+import type { useFontFavorites } from '../../hooks/useFavorites'
+import { useFavoriteFontsLocalStorageSortOrder } from '../../hooks/useSortOrder'
+import { DragAndDropList } from '../DragAndDrop/List'
+import { FontFamilyCard } from '../FontFamilyCard'
 
 type FavoritesProps = {
   fontFamilies: FontFamiliesDictionary
   favorites: Set<string>
-  toggleFavorite: (family: string) => void
+  updateFavorites: ReturnType<typeof useFontFavorites>[1]
 } & React.HTMLAttributes<HTMLDivElement>
 
-export const Favorites = ({ fontFamilies, favorites, toggleFavorite, ...props }: FavoritesProps) => {
+export const Favorites = ({ fontFamilies, favorites, updateFavorites, ...props }: FavoritesProps) => {
   const [sortOrder, saveNewOrder] = useFavoriteFontsLocalStorageSortOrder(fontFamilies, favorites)
 
   if (sortOrder?.length === 0) {
@@ -23,10 +24,9 @@ export const Favorites = ({ fontFamilies, favorites, toggleFavorite, ...props }:
         renderItem={(familyId) => {
           return (
             <FontFamilyCard
-              name={fontFamilies[familyId].fullName}
-              fontStyles={fontFamilies[familyId].styles}
-              isFavorited={favorites.has(familyId)}
-              onFavoriteClick={() => toggleFavorite(familyId)}
+              {...fontFamilies[familyId]}
+              isFavorite={favorites.has(familyId)}
+              updateFavorites={updateFavorites}
             />
           )
         }}

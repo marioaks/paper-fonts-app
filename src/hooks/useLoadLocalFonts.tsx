@@ -39,7 +39,7 @@ export function useLoadLocalFonts() {
         [familyId]: {
           id: familyId,
           fullName: font.family,
-          styles: [...(currentFamily?.styles || []), font],
+          fontStyles: [...(currentFamily?.fontStyles || []), font],
         },
       }
     }, {} as FontFamiliesDictionary)

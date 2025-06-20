@@ -1,9 +1,9 @@
-import { AllFonts } from './AllFonts'
 import FontFileIcon from './assets/icons/FontFileIcon'
 import HeartIcon from './assets/icons/HeartIcon'
 import { FontSizeToggleGroup } from './components/FontSizeToggleGroup'
+import { AllFonts } from './components/Lists/AllFonts'
+import { Favorites } from './components/Lists/Favorites'
 import NavBar from './components/NavBar'
-import { Favorites } from './Favorites'
 import { useFontFavorites } from './hooks/useFavorites'
 import { useLoadLocalFonts } from './hooks/useLoadLocalFonts'
 
@@ -29,14 +29,14 @@ function Content() {
           Something went wrong:
           {error.message}
         </p>
-        <button onClick={fetchFonts}>Try again</button>
+        <button onClick={fetchFonts} className="fetch-fonts-button">Try again</button>
       </div>
     )
   }
 
   // If no data is available, show a button to request fonts
   if (!data) {
-    return <button onClick={fetchFonts}>Request Fonts</button>
+    return <button onClick={fetchFonts} className="fetch-fonts-button">Request Fonts</button>
   }
 
   // Show loading message while fonts are being fetched
@@ -48,7 +48,7 @@ function Content() {
 }
 
 function Fonts({ data }: { data: FontFamiliesDictionary }) {
-  const [favorites, toggleFavorite] = useFontFavorites()
+  const [favorites, updateFavorites] = useFontFavorites()
 
   return (
     <NavBar
@@ -60,7 +60,7 @@ function Fonts({ data }: { data: FontFamiliesDictionary }) {
             icon: <FontFileIcon height={16} />,
           },
           panel: {
-            children: <AllFonts fontFamilies={data} favorites={favorites} toggleFavorite={toggleFavorite} />,
+            children: <AllFonts fontFamilies={data} favorites={favorites} updateFavorites={updateFavorites} />,
             keepMounted: true,
           },
         },
@@ -71,7 +71,7 @@ function Fonts({ data }: { data: FontFamiliesDictionary }) {
             icon: <HeartIcon height={16} />,
           },
           panel: {
-            children: <Favorites fontFamilies={data} favorites={favorites} toggleFavorite={toggleFavorite} />,
+            children: <Favorites fontFamilies={data} favorites={favorites} updateFavorites={updateFavorites} />,
             keepMounted: true,
           },
         },
@@ -86,10 +86,10 @@ function Fonts({ data }: { data: FontFamiliesDictionary }) {
 function App() {
   return (
     <div>
-      <h1 style={{ color: 'var(--color-gray-600)' }}>
+      <h1 className="page-title">
         Your Local Fonts
       </h1>
-      <h4 style={{ marginBottom: '2rem', color: 'var(--color-primary)' }}>Presented by Paper</h4>
+      <h4 className="page-subtitle">Presented by Paper</h4>
       <Content />
     </div>
   )

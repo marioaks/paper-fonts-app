@@ -14,7 +14,7 @@ declare global {
   interface FontFamily {
     id: string
     fullName: string
-    styles: APIFont[]
+    fontStyles: APIFont[]
   }
 
   type FontFamiliesDictionary = Record<string, FontFamily>
