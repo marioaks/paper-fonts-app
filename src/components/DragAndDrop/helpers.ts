@@ -18,7 +18,8 @@ export function handleDragStart(ev: React.DragEvent<HTMLDivElement>) {
   ev.currentTarget.classList.add('is-dragging')
 
   const list = ev.currentTarget.closest('.drag-and-drop-list') as HTMLElement
-  list.style.setProperty('--dragged-height', `${draggedElHeight}px`)
+  const zoom = Number(list.style.getPropertyValue('zoom')) || 1
+  list.style.setProperty('--dragged-height', `${draggedElHeight / zoom}px`)
 }
 
 // Function to handle the end of a drag operation
