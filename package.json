@@ -2,6 +2,7 @@
   "name": "paper-fonts-app",
   "private": true,
   "version": "0.0.0",
+  "homepage": "https://marioaks.github.io/paper-fonts-app/",
   "type": "module",
   "scripts": {
     "dev": "vite",
