@@ -74,23 +74,23 @@
 }
 
 .fontFamilyCardStylesContainer {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    column-gap: 0.5rem;
     padding-inline: .25rem;
-    line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    /* line-clamp: 2;
+    -webkit-line-clamp: 2; */
     -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
 }
 
 .fontFamilyCardStylesText {
     font-size: 1rem;
     line-height: normal;
-    white-space: nowrap;
+}
+
+.fontFamilyCardStylesTextSeparator {
+    color: var(--color-gray-400);
+    font-family: var(--font-family-sans);
 }
 
 .fontFamilyCardActions {
@@ -98,6 +98,7 @@
     flex-direction: row;
     gap: 0.5rem;
     align-items: center;
+    flex-shrink: 0;
 
 }
 

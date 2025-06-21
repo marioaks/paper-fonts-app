@@ -56,7 +56,7 @@
     width: var(--active-tab-width);
     height: 100%;
     border-radius: 0.25rem;
-    background-color: var(--color-blue-100);
+    background-color: var(--color-blue-50);
     transition-property: translate, width;
     transition-duration: 200ms;
     transition-timing-function: ease-in-out;

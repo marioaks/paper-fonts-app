@@ -1,11 +1,11 @@
-import FontFileIcon from './assets/icons/FontFileIcon'
-import HeartIcon from './assets/icons/HeartIcon'
 import { FontSizeToggleGroup } from './components/FontSizeToggleGroup'
 import { AllFonts } from './components/Lists/AllFonts'
 import { Favorites } from './components/Lists/Favorites'
 import NavBar from './components/NavBar'
 import { useFontFavorites } from './hooks/useFavorites'
 import { useLoadLocalFonts } from './hooks/useLoadLocalFonts'
+import FontFileIcon from './icons/FontFileIcon'
+import HeartIcon from './icons/HeartIcon'
 
 function Content() {
   // Destructure the result of useLoadLocalFonts hook
@@ -58,7 +58,7 @@ function Fonts({ data }: { data: FontFamiliesDictionary }) {
         { value: 'all-fonts',
           tab: {
             children: 'All fonts',
-            icon: <FontFileIcon height={16} />,
+            icon: <FontFileIcon height={24} />,
           },
           panel: {
             children: <AllFonts fontFamilies={data} favorites={favorites} updateFavorites={updateFavorites} />,
@@ -69,7 +69,7 @@ function Fonts({ data }: { data: FontFamiliesDictionary }) {
           value: 'favorites',
           tab: {
             children: 'Favorites',
-            icon: <HeartIcon height={16} />,
+            icon: <HeartIcon height={24} />,
           },
           panel: {
             children: <Favorites fontFamilies={data} favorites={favorites} updateFavorites={updateFavorites} />,

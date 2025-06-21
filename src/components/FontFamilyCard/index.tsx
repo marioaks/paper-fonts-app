@@ -1,8 +1,8 @@
 import { memo, useEffect, useState } from 'react'
-import DragIcon from '../../assets/icons/DragIcon'
-import HeartIcon from '../../assets/icons/HeartIcon'
 import { useDebounce } from '../../hooks/useDebounce'
 import type { useFontFavorites } from '../../hooks/useFavorites'
+import DragIcon from '../../icons/DragIcon'
+import HeartIcon from '../../icons/HeartIcon'
 import styles from './index.module.css'
 type Props = FontFamily & {
   isFavorite?: boolean
@@ -52,10 +52,11 @@ export const FontFamilyCard = memo(({ id, fullName, fontStyles, isFavorite, upda
               <span key={font.postscriptName} className={styles.fontFamilyCardStylesText} style={{ fontFamily: font.postscriptName }}>
                 {font.style}
                 {font !== fontStyles[fontStyles.length - 1] && (
-                  <>
+                  <span className={styles.fontFamilyCardStylesTextSeparator}>
                     {' '}
                     /
-                  </>
+                    {' '}
+                  </span>
                 )}
               </span>
             ))}
@@ -68,9 +69,9 @@ export const FontFamilyCard = memo(({ id, fullName, fontStyles, isFavorite, upda
             className={styles.favoriteButton}
             aria-label={localIsFavorite ? 'Remove from favorites' : 'Add to favorites'}
           >
-            <HeartIcon height={20} fill={localIsFavorite ? 'currentColor' : 'none'} />
+            <HeartIcon height={36} fill={localIsFavorite ? 'currentColor' : 'none'} />
           </button>
-          <DragIcon height={20} color="var(--color-gray-300)" />
+          <DragIcon height={28} color="var(--color-gray-300)" />
         </div>
       </div>
     </div>

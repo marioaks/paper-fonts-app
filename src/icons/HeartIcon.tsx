@@ -1,6 +1,6 @@
 export default function HeartIcon(props: React.ComponentProps<'svg'>) {
   return (
-    <svg stroke="currentColor" fill="none" strokeWidth="6" viewBox="12 27 75 71" {...props}>
+    <svg stroke="currentColor" fill="none" strokeWidth="6" viewBox="0 0 100 125" {...props}>
       <g transform="translate(0,-940.36218)">
         <path d="m 33.780493,970.3622 c -11.63849,0 -18.78049,10.17801 -18.78049,18.52632 0,18.05128 20.51725,34.80698 35,45.47368 14.482764,-10.6667 34.999994,-27.4224 34.999994,-45.47368 0,-8.34831 -7.14198,-18.52632 -18.78046,-18.52632 -6.50001,0 -12.052864,5.1822 -16.219534,10.10527 -4.16666,-4.92307 -9.71959,-10.10527 -16.21951,-10.10527 z" />
       </g>

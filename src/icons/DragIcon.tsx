@@ -1,7 +1,7 @@
 export default function DragIcon(props: React.ComponentProps<'svg'>) {
   return (
     <svg
-      viewBox="7.5 3.5 9 17"
+      viewBox="0 0 24 24"
       stroke="currentColor"
       fill="none"
       strokeWidth="2"

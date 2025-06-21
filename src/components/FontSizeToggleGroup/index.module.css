@@ -25,12 +25,12 @@
 
     @media (hover: hover) {
         &:hover {
-            background-color: var(--color-blue-100);
+            background-color: var(--color-blue-50);
         }
     }
 
     &[data-pressed] {
         color: var(--color-blue-600);
-        background-color: var(--color-blue-100);
+        background-color: var(--color-blue-50);
     }
 }
