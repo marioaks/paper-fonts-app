@@ -1,0 +1,13 @@
+.favorites-container .unfavorite-transition {
+    height: 0;
+    opacity: 0;
+    padding: 0;
+    overflow: hidden;
+    transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition-delay: 1s;
+}
+
+.favorites-container .unfavorite-transition>div {
+    transform: scale(1) !important;
+    outline: 0 !important;
+}

@@ -7,9 +7,10 @@ import styles from './index.module.css'
 type Props = FontFamily & {
   isFavorite?: boolean
   updateFavorites: ReturnType<typeof useFontFavorites>[1]
+  updateFavoritesDelay?: number
 }
 
-export const FontFamilyCard = memo(({ id, fullName, fontStyles, isFavorite, updateFavorites, ...props }: Props) => {
+export const FontFamilyCard = memo(({ id, fullName, fontStyles, isFavorite, updateFavorites, updateFavoritesDelay = 0, ...props }: Props) => {
   const [localIsFavorite, setLocalIsFavorite] = useState(isFavorite ?? false)
 
   // Update local state when prop changes
@@ -20,7 +21,7 @@ export const FontFamilyCard = memo(({ id, fullName, fontStyles, isFavorite, upda
   const debouncedOnFavoriteClick = useDebounce(() => {
     if (localIsFavorite) updateFavorites({ type: 'UNFAVORITE', payload: id })
     else updateFavorites({ type: 'FAVORITE', payload: id })
-  }, 1500)
+  }, updateFavoritesDelay)
 
   // The debounce delay allows us to animate an element in and out when it is unfavorited
   const handleFavoriteClick = () => {

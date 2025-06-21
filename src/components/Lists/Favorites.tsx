@@ -2,6 +2,7 @@ import type { useFontFavorites } from '../../hooks/useFavorites'
 import { useFavoriteFontsLocalStorageSortOrder } from '../../hooks/useSortOrder'
 import { DragAndDropList } from '../DragAndDrop/List'
 import { FontFamilyCard } from '../FontFamilyCard'
+import './index.css'
 
 type FavoritesProps = {
   fontFamilies: FontFamiliesDictionary
@@ -27,6 +28,7 @@ export const Favorites = ({ fontFamilies, favorites, updateFavorites, ...props }
               {...fontFamilies[familyId]}
               isFavorite={favorites.has(familyId)}
               updateFavorites={updateFavorites}
+              updateFavoritesDelay={1500} // adds a delay, allowing users to change their mind before the favorite disappears
             />
           )
         }}
