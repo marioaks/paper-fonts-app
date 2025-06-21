@@ -34,15 +34,14 @@ function Content() {
     )
   }
 
-
-  // If no data is available, show a button to request fonts
-  if (!data || permissionStatus === 'prompt') {
-    return <button onClick={fetchFonts} className="fetch-fonts-button">Request Fonts</button>
-  }
-
   // Show loading message while fonts are being fetched
   if (loading) {
     return <p>Loading...</p>
+  }
+
+  // If no data is available, show a button to request fonts
+  if (!data || permissionStatus === 'prompt') {
+    return <button onClick={fetchFonts} className="fetch-fonts-button">Load Fonts</button>
   }
 
   return <Fonts data={data} />

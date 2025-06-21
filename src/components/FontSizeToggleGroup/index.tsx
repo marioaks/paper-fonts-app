@@ -18,13 +18,8 @@ export const FontSizeToggleGroup = () => {
 
         // Not the best way to do this!!
         // Ideally we should be virtualizing the lists allowing us to rerender normally rather tha manipulating the DOM
-        const fontFamilyContent = document.querySelectorAll('.drag-and-drop-list') as unknown as HTMLElement[]
-        if (fontFamilyContent) {
-          const zoom = zoomMap[value] || 1
-          fontFamilyContent.forEach((content) => {
-            content.style.setProperty('zoom', zoom.toString())
-          })
-        }
+        const zoom = zoomMap[value] || 1
+        document.documentElement.style.setProperty('--card-zoom-size', zoom.toString())
         setValue(value)
       }}
       className={styles.Panel}

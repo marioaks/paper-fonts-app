@@ -18,7 +18,7 @@ export function handleDragStart(ev: React.DragEvent<HTMLDivElement>) {
   ev.currentTarget.classList.add('is-dragging')
 
   const list = ev.currentTarget.closest('.drag-and-drop-list') as HTMLElement
-  const zoom = Number(list.style.getPropertyValue('zoom')) || 1
+  const zoom = Number(document.documentElement.style.getPropertyValue('--card-zoom-size')) || 1
   list.style.setProperty('--dragged-height', `${draggedElHeight / zoom}px`)
 }
 
