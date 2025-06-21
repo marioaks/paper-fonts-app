@@ -24,15 +24,15 @@
 
 .fontFamilyCardContainer:not(:hover) {
     .fontFamilyCard {
-        transition: color 1s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
 }
 
 .fontFamilyCardContainer:hover {
     @media (hover: hover) {
         .fontFamilyCard {
-            outline: 2px solid var(--color-blue-600);
-            outline-offset: -2px;
+            outline: 1px solid var(--color-blue-600);
+            outline-offset: -1px;
             color: var(--color-blue-600);
         }
     }
