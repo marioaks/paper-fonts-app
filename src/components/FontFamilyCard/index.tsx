@@ -23,7 +23,7 @@ export const FontFamilyCard = memo(({ id, fullName, fontStyles, isFavorite, upda
     else updateFavorites({ type: 'FAVORITE', payload: id })
   }, updateFavoritesDelay)
 
-  // The debounce delay allows us to animate an element in and out when it is unfavorited
+  // The debounce delay allows us to animate an element in and out
   const handleFavoriteClick = () => {
     setLocalIsFavorite(!localIsFavorite)
     debouncedOnFavoriteClick()
