@@ -1,0 +1,42 @@
+{
+  "homeUrl": "http://127.0.0.1:8787/",
+  "browser": {
+    "userDataDir": "./data/mock-profile",
+    "headed": false
+  },
+  "site": {
+    "folderLinks": "a.folder",
+    "memberLinks": "a.member",
+    "memberName": "#member-name",
+    "memberPhone": "#member-phone",
+    "copyMessageButton": "#copy-message",
+    "surveyReachedOutYes": "#survey-yes",
+    "surveySubmit": "#survey-submit",
+    "surveySavedIndicator": "#survey-saved:not(.hidden)"
+  },
+  "googleVoice": {
+    "url": "http://127.0.0.1:8787/gv",
+    "selectors": {
+      "composeButton": "#gv-compose",
+      "recipientInput": "#gv-recipient",
+      "messageInput": "#gv-message",
+      "sendButton": "#gv-send",
+      "sentIndicator": "#gv-sent:not(.hidden)"
+    }
+  },
+  "pacing": {
+    "actionDelayMs": [3, 12],
+    "keystrokeDelayMs": [1, 4],
+    "betweenMembersSec": [0, 0]
+  },
+  "limits": {
+    "maxPerRun": 100,
+    "maxPerDay": 100
+  },
+  "behavior": {
+    "skipEmailOnly": true,
+    "fillSurvey": true,
+    "randomizeOrder": false
+  },
+  "contactLogPath": "./data/mock-contact-log.json"
+}

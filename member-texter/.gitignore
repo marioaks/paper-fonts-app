@@ -1,0 +1,10 @@
+# Dependencies
+node_modules
+
+# Local runtime data — NEVER commit member data or browser sessions
+data/
+chrome-profile/
+*.log
+
+# OS
+.DS_Store
