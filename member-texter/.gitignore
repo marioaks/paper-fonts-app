@@ -1,9 +1,9 @@
 # Dependencies
 node_modules
 
-# Local runtime data — NEVER commit member data or browser sessions
-data/
+# Local runtime data — NEVER commit member data or your browser session
 chrome-profile/
+contact-log.json
 *.log
 
 # OS

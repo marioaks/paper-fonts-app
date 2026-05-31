@@ -1,26 +1,20 @@
 {
   "name": "member-texter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Local, human-paced assistant that opens member pages, copies each page's initial message, and sends it from your Google Voice number — all on your own machine, with no data leaving your computer.",
+  "description": "Single-file, local assistant that texts (Google Voice) or emails (Gmail) your 'Not started' members one by one and marks the outreach survey.",
   "engines": {
     "node": ">=20"
   },
+  "bin": {
+    "member-texter": "member-texter.mjs"
+  },
   "scripts": {
-    "start": "tsx src/run.ts",
-    "dry-run": "tsx src/run.ts --dry-run",
-    "mock:serve": "node mock/server.mjs",
-    "test": "node --import tsx --test test/*.test.mjs",
-    "typecheck": "tsc --noEmit",
-    "codegen": "playwright codegen"
+    "start": "node member-texter.mjs",
+    "dry-run": "node member-texter.mjs --dry-run"
   },
   "dependencies": {
     "playwright": "^1.49.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
   }
 }
