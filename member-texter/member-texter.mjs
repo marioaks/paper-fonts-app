@@ -59,7 +59,7 @@ const SEL = {
   personPhone: '[data-testid="userPhone"]',
   personEmail: '[data-testid="user-email"]',
   copyMessage: "copy initial message",
-  copyMessageButton: 'button:has-text("copy initial message")',
+  copyMessageButton: 'button.button:has([aria-label="copy"]), button.button:has-text("Copy initial message")',
   surveyWaiting: "Waiting on response",
   surveySubmit: "#submitContactOutreachButton",
   gv: {
@@ -604,7 +604,8 @@ async function openNextNotStarted(app, processedKeys) {
 
 async function waitForPersonPage(app) {
   await waitAny([
-    app.getByText(new RegExp(SEL.copyMessage, "i")).first().waitFor({ state: "attached", timeout: 15000 }),
+    app.locator('button.button:has([aria-label="copy"])').first().waitFor({ state: "visible", timeout: 15000 }),
+    app.getByText(new RegExp(SEL.copyMessage, "i")).first().waitFor({ state: "visible", timeout: 15000 }),
     app.locator(SEL.surveySubmit).first().waitFor({ state: "attached", timeout: 15000 }),
     app.locator(SEL.personPhone).first().waitFor({ state: "attached", timeout: 15000 }),
     app.locator(SEL.personEmail).first().waitFor({ state: "attached", timeout: 15000 }),
@@ -630,26 +631,34 @@ async function readPageClipboard(page) {
   }
 }
 
-/** Click the real <button> that wraps "copy initial message" (text may be in nested divs). */
+/** Click the Copy button (icon + nested div text inside button.button). */
 async function clickCopyInitialMessageButton(app) {
   await app.bringToFront();
   const candidates = [
-    app.getByRole("button", { name: /copy initial message/i }),
+    app.locator("button.button").filter({ has: app.locator('[aria-label="copy"]') }),
+    app.locator('button.button:has([aria-label="copy"])'),
     app.locator(SEL.copyMessageButton),
+    app.getByRole("button", { name: /copy initial message/i }),
+    app.locator("button.button").filter({ hasText: /copy initial message/i }),
     app.locator("button").filter({ hasText: /copy initial message/i }),
   ];
+  let lastErr = null;
   for (const loc of candidates) {
+    const btn = loc.first();
     try {
-      const btn = loc.first();
       if ((await btn.count()) === 0) continue;
+      await btn.waitFor({ state: "visible", timeout: 12000 });
       await btn.scrollIntoViewIfNeeded();
       await humanClick(app, btn);
       return;
-    } catch {
-      /* try next locator */
+    } catch (err) {
+      lastErr = err;
     }
   }
-  throw new Error('Could not find the "copy initial message" button on this page');
+  throw new Error(
+    'Could not find or click the "Copy initial message" button on this page' +
+      (lastErr ? `: ${lastErr.message}` : ""),
+  );
 }
 
 /**
@@ -1025,10 +1034,11 @@ export async function main(argv) {
       }
 
       const personUrl = app.url();
+      let channel = null;
       try {
         const phoneText = await readTestId(app, "userPhone");
         const emailText = await readTestId(app, "user-email");
-        const channel = phoneText ? "text" : emailText ? "email" : null;
+        channel = phoneText ? "text" : emailText ? "email" : null;
 
         if (!channel) {
           summary.skippedNoContact++;
