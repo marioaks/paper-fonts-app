@@ -324,7 +324,7 @@ async function waitForMemberList(app, args, { phase = "startup" } = {}) {
 
   log.info(
     phase === "startup"
-      ? "Opening your list page. If you are already logged in, the script will start as soon as it sees member rows."
+      ? "Opening your list, Google Voice, and Gmail. Sign in in each Chrome tab if needed; the script continues when each is ready."
       : "Waiting for the member list to appear again...",
   );
   log.info(`List URL: ${args.list}`);
@@ -380,6 +380,130 @@ async function waitForMemberList(app, args, { phase = "startup" } = {}) {
 
     await sleep(2000);
   }
+}
+
+/** Google sign-in interstitial (Voice and Gmail share Google accounts). */
+function isGoogleAccountPage(page) {
+  try {
+    return /accounts\.google\.com/i.test(page.url());
+  } catch {
+    return false;
+  }
+}
+
+async function isGoogleVoiceReady(page) {
+  if (isGoogleAccountPage(page)) return false;
+  try {
+    const compose = page.getByRole("button", { name: new RegExp(SEL.gv.compose, "i") });
+    if ((await compose.count()) > 0) return true;
+  } catch {
+    /* ignore */
+  }
+  try {
+    if ((await page.locator(SEL.gv.messageInput).count()) > 0) return true;
+  } catch {
+    /* ignore */
+  }
+  try {
+    return /voice\.google\.com/i.test(page.url());
+  } catch {
+    return false;
+  }
+}
+
+async function isGmailReady(page) {
+  if (isGoogleAccountPage(page)) return false;
+  try {
+    const compose = page.getByRole("button", { name: new RegExp(SEL.gmail.compose, "i") });
+    if ((await compose.count()) > 0) return true;
+  } catch {
+    /* ignore */
+  }
+  try {
+    return /mail\.google\.com/i.test(page.url());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Wait until a Google service (Voice or Gmail) is usable — same idea as the member list:
+ * one navigation, then poll the DOM without hammering reload. Sign-in is manual in Chrome.
+ */
+async function waitForGoogleService(page, args, { serviceName, url, isReady, phase = "startup" }) {
+  if (args.skipLoginWait) return true;
+  if (args.headless) return true;
+
+  const timeoutMs = args.loginTimeoutMin * 60 * 1000;
+  const started = Date.now();
+  let lastLog = 0;
+  let didInitialGoto = false;
+
+  log.info(
+    phase === "startup"
+      ? `Waiting for ${serviceName} — sign in in that Chrome tab if needed.`
+      : `${serviceName} session may have expired — sign in again in that tab.`,
+  );
+
+  for (;;) {
+    await page.bringToFront();
+    if (!didInitialGoto || !urlsRoughlyMatch(page.url(), url)) {
+      await page.goto(url, { waitUntil: "load", timeout: 60000 }).catch(() => {});
+      didInitialGoto = true;
+      await sleep(1500);
+    }
+
+    if (await isReady(page)) {
+      log.ok(`${serviceName} is ready.`);
+      return true;
+    }
+
+    const elapsed = Date.now() - started;
+    if (elapsed >= timeoutMs) {
+      log.err(`Timed out waiting for ${serviceName} (${args.loginTimeoutMin} min).`);
+      return false;
+    }
+
+    if (Date.now() - lastLog > 8000) {
+      lastLog = Date.now();
+      const hint = isGoogleAccountPage(page)
+        ? `Finish Google sign-in for ${serviceName} in Chrome.`
+        : `Still waiting for ${serviceName} to load...`;
+      const left = Math.ceil((timeoutMs - elapsed) / 60000);
+      log.step(`${hint} (${left} min left)`);
+    }
+    await sleep(2000);
+  }
+}
+
+async function waitForGoogleVoice(page, args, opts = {}) {
+  return waitForGoogleService(page, args, {
+    serviceName: "Google Voice",
+    url: args.gvUrl,
+    isReady: isGoogleVoiceReady,
+    phase: opts.phase || "startup",
+  });
+}
+
+async function waitForGmail(page, args, opts = {}) {
+  return waitForGoogleService(page, args, {
+    serviceName: "Gmail",
+    url: args.gmailUrl,
+    isReady: isGmailReady,
+    phase: opts.phase || "startup",
+  });
+}
+
+async function ensureGoogleVoiceReady(page, args) {
+  await page.bringToFront();
+  if (await isGoogleVoiceReady(page)) return true;
+  return waitForGoogleVoice(page, args, { phase: "reauth" });
+}
+
+async function ensureGmailReady(page, args) {
+  await page.bringToFront();
+  if (await isGmailReady(page)) return true;
+  return waitForGmail(page, args, { phase: "reauth" });
 }
 
 /** Go to the list only if needed; wait for rows without hammering reload. */
@@ -501,7 +625,10 @@ async function copyInitialMessage(app) {
   }
 }
 
-async function sendText(gv, phoneText, message, { actuallySend = true } = {}) {
+async function sendText(gv, phoneText, message, { actuallySend = true, args } = {}) {
+  if (args && !(await ensureGoogleVoiceReady(gv, args))) {
+    throw new Error("Google Voice is not signed in");
+  }
   await gv.bringToFront();
   await clickByName(gv, SEL.gv.compose);
   await sleep(rnd(500, 1100));
@@ -521,7 +648,10 @@ async function sendText(gv, phoneText, message, { actuallySend = true } = {}) {
   await sleep(rnd(1200, 2200));
 }
 
-async function sendEmail(gmail, toEmail, subject, message, { actuallySend = true } = {}) {
+async function sendEmail(gmail, toEmail, subject, message, { actuallySend = true, args } = {}) {
+  if (args && !(await ensureGmailReady(gmail, args))) {
+    throw new Error("Gmail is not signed in");
+  }
   await gmail.bringToFront();
   await clickByName(gmail, SEL.gmail.compose);
   await sleep(rnd(600, 1200));
@@ -608,10 +738,26 @@ export async function main(argv) {
     const gv = await context.newPage();
     await gv.goto(args.gvUrl, { waitUntil: "domcontentloaded" }).catch(() => {});
 
+    let gmail = null;
+
     if (!args.skipLoginWait && !args.headless) {
       const ready = await waitForMemberList(app, args, { phase: "startup" });
       if (!ready) {
         summary.stoppedReason = "login-timeout";
+        keepBrowserOpen = true;
+        return summary;
+      }
+      const gvReady = await waitForGoogleVoice(gv, args, { phase: "startup" });
+      if (!gvReady) {
+        summary.stoppedReason = "gv-login-timeout";
+        keepBrowserOpen = true;
+        return summary;
+      }
+      gmail = await context.newPage();
+      await gmail.goto(args.gmailUrl, { waitUntil: "load", timeout: 60000 }).catch(() => {});
+      const gmailReady = await waitForGmail(gmail, args, { phase: "startup" });
+      if (!gmailReady) {
+        summary.stoppedReason = "gmail-login-timeout";
         keepBrowserOpen = true;
         return summary;
       }
@@ -720,7 +866,7 @@ export async function main(argv) {
         const actuallySend = !args.dryRun;
 
         if (channel === "text") {
-          await sendText(gv, phoneText, message, { actuallySend });
+          await sendText(gv, phoneText, message, { actuallySend, args });
           if (args.dryRun) {
             summary.rehearsed++;
             log.ok(`DRY RUN rehearsed text flow for ${person.name} ${maskPhone(phoneText)}`);
@@ -730,8 +876,8 @@ export async function main(argv) {
             log.ok(`Texted ${person.name} ${maskPhone(phoneText)}`);
           }
         } else {
-          const gmail = await getOrOpenGmail(context, args);
-          await sendEmail(gmail, emailText, args.subject, message, { actuallySend });
+          if (!gmail) gmail = await getOrOpenGmail(context, args);
+          await sendEmail(gmail, emailText, args.subject, message, { actuallySend, args });
           if (args.dryRun) {
             summary.rehearsed++;
             log.ok(`DRY RUN rehearsed email flow for ${person.name} ${maskEmail(emailText)}`);
@@ -793,9 +939,17 @@ export async function main(argv) {
 
 let gmailPageCache = null;
 async function getOrOpenGmail(context, args) {
-  if (gmailPageCache && !gmailPageCache.isClosed()) return gmailPageCache;
+  if (gmailPageCache && !gmailPageCache.isClosed()) {
+    if (!(await isGmailReady(gmailPageCache))) {
+      await ensureGmailReady(gmailPageCache, args);
+    }
+    return gmailPageCache;
+  }
   gmailPageCache = await context.newPage();
-  await gmailPageCache.goto(args.gmailUrl, { waitUntil: "domcontentloaded" }).catch(() => {});
+  await gmailPageCache.goto(args.gmailUrl, { waitUntil: "load", timeout: 60000 }).catch(() => {});
+  if (!args.skipLoginWait && !args.headless) {
+    await waitForGmail(gmailPageCache, args, { phase: "startup" });
+  }
   return gmailPageCache;
 }
 
@@ -886,7 +1040,7 @@ function printHelp() {
       "  --keep-open            always leave Chrome open when the script exits",
       "  --debug-list           log URL and selector counts while waiting",
       "  --list-detect-sec <n>  seconds to wait for rows after load (default 45)",
-      "  --skip-login-wait      skip the login wait (use when already logged in)",
+      "  --skip-login-wait      skip login wait for list + Voice + Gmail",
       "  --already-logged-in    same as --skip-login-wait",
       "  --dry-run              rehearse Voice/Gmail (fill compose) but never click Send; no survey",
       "  --plan-only            list who would be contacted only (no Voice/Gmail UI)",
