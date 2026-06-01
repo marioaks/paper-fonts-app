@@ -34,9 +34,14 @@
 
 import { chromium } from "playwright";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
-import { pathToFileURL } from "node:url";
+import { dirname, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import process from "node:process";
+
+/** Folder where this script lives — profile and log defaults are always here. */
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const DEFAULT_PROFILE_DIR = join(SCRIPT_DIR, "chrome-profile");
+const DEFAULT_CONTACT_LOG = join(SCRIPT_DIR, "contact-log.json");
 
 // --- Selectors (from the live app / Google Voice / Gmail) -------------------
 // Try several selectors — some builds use <button>, others use <div role="button">, etc.
@@ -328,7 +333,6 @@ async function waitForMemberList(app, args, { phase = "startup" } = {}) {
       : "Waiting for the member list to appear again...",
   );
   log.info(`List URL: ${args.list}`);
-  log.info(`Chrome profile (sessions are saved here): ${args.profile}`);
 
   for (;;) {
     await app.bringToFront();
@@ -726,6 +730,7 @@ export async function main(argv) {
   let keepBrowserOpen = args.keepOpen;
 
   try {
+    log.info(`Chrome profile (logins saved here): ${args.profile}`);
     context = await chromium.launchPersistentContext(args.profile, {
       channel: args.chromium ? undefined : args.channel,
       headless: args.headless,
@@ -953,12 +958,19 @@ async function getOrOpenGmail(context, args) {
   return gmailPageCache;
 }
 
+function resolveDataPath(p) {
+  if (!p) return p;
+  if (p.startsWith("/")) return p;
+  if (process.platform === "win32" && /^[a-zA-Z]:[\\/]/.test(p)) return p;
+  return join(SCRIPT_DIR, p);
+}
+
 export function parseArgs(argv) {
   const args = {
     list: "",
     subject: "",
-    profile: "./chrome-profile",
-    log: "./contact-log.json",
+    profile: DEFAULT_PROFILE_DIR,
+    log: DEFAULT_CONTACT_LOG,
     gvUrl: "https://voice.google.com",
     gmailUrl: "https://mail.google.com",
     channel: "chrome",
@@ -1015,6 +1027,8 @@ export function parseArgs(argv) {
     }
   }
   if (args.maxGap < args.minGap) args.maxGap = args.minGap;
+  args.profile = resolveDataPath(args.profile);
+  args.log = resolveDataPath(args.log);
   return args;
 }
 
@@ -1045,7 +1059,7 @@ function printHelp() {
       "  --dry-run              rehearse Voice/Gmail (fill compose) but never click Send; no survey",
       "  --plan-only            list who would be contacted only (no Voice/Gmail UI)",
       "  --max <n>              stop after n sends",
-      "  --profile <dir>        Chrome profile (default ./chrome-profile)",
+      "  --profile <dir>        optional override (default: chrome-profile next to this script)",
       "  -h, --help             show this help",
     ].join("\n"),
   );
