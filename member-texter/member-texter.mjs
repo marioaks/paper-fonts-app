@@ -34,6 +34,9 @@
 
 import { chromium } from "playwright";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+const execFileAsync = promisify(execFile);
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import process from "node:process";
@@ -631,25 +634,70 @@ async function readPageClipboard(page) {
   }
 }
 
-/** Click the Copy button (icon + nested div text inside button.button). */
-async function clickCopyInitialMessageButton(app) {
-  await app.bringToFront();
-  const candidates = [
-    app.locator("button.button").filter({ has: app.locator('[aria-label="copy"]') }),
+async function readSystemClipboard() {
+  if (process.platform !== "darwin") return "";
+  try {
+    const { stdout } = await execFileAsync("pbpaste");
+    return stdout || "";
+  } catch {
+    return "";
+  }
+}
+
+/** Sites often copy via the copy event; navigator.clipboard may not update in automation. */
+async function installCopyCapture(page) {
+  await page.evaluate(() => {
+    window.__memberTexterCopyText = "";
+    const handler = (e) => {
+      const t = e.clipboardData?.getData("text/plain") || "";
+      if (t) window.__memberTexterCopyText = t;
+    };
+    if (window.__memberTexterCopyHandler) {
+      document.removeEventListener("copy", window.__memberTexterCopyHandler, true);
+    }
+    window.__memberTexterCopyHandler = handler;
+    document.addEventListener("copy", handler, true);
+  });
+}
+
+async function readCapturedCopy(page) {
+  try {
+    return (await page.evaluate(() => window.__memberTexterCopyText || "")).trim();
+  } catch {
+    return "";
+  }
+}
+
+function getCopyButtonLocator(app) {
+  return [
     app.locator('button.button:has([aria-label="copy"])'),
+    app.locator("button.button").filter({ has: app.locator('[aria-label="copy"]') }),
     app.locator(SEL.copyMessageButton),
     app.getByRole("button", { name: /copy initial message/i }),
     app.locator("button.button").filter({ hasText: /copy initial message/i }),
-    app.locator("button").filter({ hasText: /copy initial message/i }),
   ];
+}
+
+/** Click the Copy button (Ant Design: button.button + copy icon + nested label div). */
+async function clickCopyInitialMessageButton(app, { preferNativeClick = false } = {}) {
+  await app.bringToFront();
   let lastErr = null;
-  for (const loc of candidates) {
+  for (const loc of getCopyButtonLocator(app)) {
     const btn = loc.first();
     try {
       if ((await btn.count()) === 0) continue;
-      await btn.waitFor({ state: "visible", timeout: 12000 });
+      await btn.waitFor({ state: "visible", timeout: 20000 });
       await btn.scrollIntoViewIfNeeded();
-      await humanClick(app, btn);
+      await sleep(rnd(200, 400));
+      if (preferNativeClick) {
+        await btn.click({ timeout: 10000 });
+      } else {
+        try {
+          await btn.click({ timeout: 8000 });
+        } catch {
+          await humanClick(app, btn);
+        }
+      }
       return;
     } catch (err) {
       lastErr = err;
@@ -661,32 +709,57 @@ async function clickCopyInitialMessageButton(app) {
   );
 }
 
+async function readCopiedMessageAfterClick(app, before) {
+  await sleep(rnd(350, 650));
+  const captured = await readCapturedCopy(app);
+  if (captured.length > 15) return { text: captured, via: "copy-event" };
+  const fromApi = (await readPageClipboard(app)).trim();
+  if (fromApi && fromApi !== before) return { text: fromApi, via: "clipboard-api" };
+  const fromPaste = (await readSystemClipboard()).trim();
+  if (fromPaste && fromPaste !== before) return { text: fromPaste, via: "pbpaste" };
+  if (captured.length > 0) return { text: captured, via: "copy-event-partial" };
+  if (fromApi.length > 0 && before.length > 0 && fromApi === before) return { text: "", via: "unchanged" };
+  return { text: fromApi || fromPaste || captured, via: "none" };
+}
+
 /**
- * Click copy, then wait until the clipboard changes (proves the site's copy ran).
+ * Copy the member's initial message — uses the browser copy event (most reliable),
+ * then clipboard API / macOS pbpaste as fallbacks. Retries up to 3 times.
  */
 async function copyInitialMessage(app) {
   await app.bringToFront();
-  const before = (await readPageClipboard(app)).trim();
-  await clickCopyInitialMessageButton(app);
+  await app.locator('button.button:has([aria-label="copy"])').first()
+    .waitFor({ state: "visible", timeout: 20000 })
+    .catch(() => {});
 
-  const deadline = Date.now() + 8000;
-  let after = before;
-  while (Date.now() < deadline) {
-    await sleep(150);
-    after = (await readPageClipboard(app)).trim();
-    if (after && after !== before) {
-      log.step(`Copied message (${after.length} characters) from the member page`);
-      return after;
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await installCopyCapture(app);
+    const before = (await readPageClipboard(app)).trim();
+    try {
+      await clickCopyInitialMessageButton(app, { preferNativeClick: attempt > 1 });
+    } catch (err) {
+      lastError = err;
+      await sleep(500);
+      continue;
     }
-  }
-
-  if (after && after === before) {
-    throw new Error(
-      'Clicked "copy initial message" but the clipboard did not change — still showing your previous copy. ' +
-        "Try clicking the button once manually in Chrome to confirm it works.",
+    const { text, via } = await readCopiedMessageAfterClick(app, before);
+    if (text && text.length > 10 && via !== "unchanged") {
+      log.step(`Copied message (${text.length} characters via ${via})`);
+      return text;
+    }
+    if (text && text !== before && text.length > 10) {
+      log.step(`Copied message (${text.length} characters via ${via})`);
+      return text;
+    }
+    lastError = new Error(
+      via === "unchanged"
+        ? 'Copy button clicked but message did not change (site may not expose clipboard to automation).'
+        : "Copy ran but no message text was captured",
     );
+    await sleep(rnd(400, 800));
   }
-  throw new Error('Clicked "copy initial message" but could not read the clipboard');
+  throw lastError || new Error('Could not copy the "Copy initial message" text');
 }
 
 async function dismissGoogleVoiceOverlays(gv) {
@@ -818,10 +891,11 @@ async function addGoogleVoiceRecipient(gv, phoneText) {
   }
 }
 
-async function sendText(gv, phoneText, message, { actuallySend = true, args } = {}) {
+async function sendText(gv, phoneText, message, { actuallySend = true, args, onComposeStarted } = {}) {
   if (args && !(await ensureGoogleVoiceReady(gv, args))) {
     throw new Error("Google Voice is not signed in");
   }
+  if (onComposeStarted) onComposeStarted();
   await startNewGoogleVoiceMessage(gv, args);
   await gv.bringToFront();
   await addGoogleVoiceRecipient(gv, phoneText);
@@ -1035,6 +1109,7 @@ export async function main(argv) {
 
       const personUrl = app.url();
       let channel = null;
+      let reachedGoogleVoice = false;
       try {
         const phoneText = await readTestId(app, "userPhone");
         const emailText = await readTestId(app, "user-email");
@@ -1064,7 +1139,13 @@ export async function main(argv) {
         const actuallySend = !args.dryRun;
 
         if (channel === "text") {
-          await sendText(gv, phoneText, message, { actuallySend, args });
+          await sendText(gv, phoneText, message, {
+            actuallySend,
+            args,
+            onComposeStarted: () => {
+              reachedGoogleVoice = true;
+            },
+          });
           if (args.dryRun) {
             summary.rehearsed++;
             log.ok(`DRY RUN rehearsed text flow for ${person.name} ${maskPhone(phoneText)}`);
@@ -1111,7 +1192,7 @@ export async function main(argv) {
       } catch (e) {
         summary.failed++;
         log.err(`Problem with ${person.name}: ${e.message}`);
-        if (channel === "text") {
+        if (channel === "text" && reachedGoogleVoice) {
           try {
             await startNewGoogleVoiceMessage(gv, args);
             log.step("Reset Google Voice — fresh message compose for the next person.");
