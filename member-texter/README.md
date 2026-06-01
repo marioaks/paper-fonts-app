@@ -46,7 +46,9 @@ node member-texter.mjs --list "<url>" --dry-run
 1. Confirm `--list` is the **people-list page URL** (with `button.person-list-item` rows), not the site home page.
 2. Use the **same** `--profile` directory every time so Chrome does not start “fresh” each run.
 3. On login timeout the browser is **left open** so you can finish signing in; fix login, then run the command again.
-4. If your list uses different markup, add `--list-ready "your-selector"` so the script knows the page is ready.
+4. If the list is on screen but the script keeps waiting, run with **`--debug-list`** — it prints which selectors it can see. You can also pass **`--list-ready ".your-selector"`**.
+
+The script does **not** refresh the list page every few seconds while waiting; it loads once and polls until rows appear.
 
 ## Flow (short)
 
