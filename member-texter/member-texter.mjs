@@ -66,6 +66,8 @@ const SEL = {
     sendTo: ".send-to-button",
     messageInput: ".message-input",
     send: ".send-button",
+    recipientPicker: '[gv-test-id="recipient-picker"]',
+    contactBackdrop: ".contact-list-backdrop, .cdk-overlay-backdrop",
   },
   gmail: {
     compose: "Compose",
@@ -629,6 +631,60 @@ async function copyInitialMessage(app) {
   }
 }
 
+/**
+ * After adding a recipient, Google Voice shows a contact-picker overlay that blocks
+ * clicks on the message box. Select the contact (or dismiss the overlay), then focus
+ * the message field without clicking through the backdrop.
+ */
+async function confirmGoogleVoiceRecipient(gv, phoneText) {
+  await sleep(rnd(500, 900));
+
+  const picker = gv.locator(SEL.gv.recipientPicker);
+  if ((await picker.count()) > 0) {
+    const last4 = digitsOnly(phoneText).slice(-4);
+    let row = picker.filter({ hasText: last4 }).first();
+    if ((await row.count()) === 0) row = picker.first();
+    try {
+      await row.click({ timeout: 8000 });
+    } catch {
+      await row.click({ force: true });
+    }
+    await sleep(rnd(500, 900));
+  }
+
+  const backdrop = gv.locator(SEL.gv.contactBackdrop);
+  for (let i = 0; i < 12; i++) {
+    const blocking =
+      (await backdrop.count()) > 0 &&
+      (await backdrop.first().isVisible().catch(() => false));
+    if (!blocking) break;
+    await gv.keyboard.press("Escape");
+    await sleep(280);
+  }
+  await sleep(rnd(200, 450));
+}
+
+async function fillGoogleVoiceMessage(gv, message) {
+  const input = gv.locator(SEL.gv.messageInput).first();
+  await input.waitFor({ state: "visible", timeout: 20000 });
+  try {
+    await input.focus({ timeout: 12000 });
+  } catch {
+    await gv.keyboard.press("Escape");
+    await sleep(350);
+    await input.focus({ timeout: 12000 });
+  }
+  await sleep(rnd(150, 350));
+  await gv.keyboard.press(`${PASTE_MOD}+A`);
+  await gv.keyboard.press("Backspace");
+  await sleep(rnd(120, 280));
+  await gv.keyboard.press(`${PASTE_MOD}+V`);
+  await sleep(rnd(250, 500));
+  if (!(await fieldText(input)) && message) {
+    await input.fill(message);
+  }
+}
+
 async function sendText(gv, phoneText, message, { actuallySend = true, args } = {}) {
   if (args && !(await ensureGoogleVoiceReady(gv, args))) {
     throw new Error("Google Voice is not signed in");
@@ -638,9 +694,15 @@ async function sendText(gv, phoneText, message, { actuallySend = true, args } = 
   await sleep(rnd(500, 1100));
   await gv.keyboard.type(phoneText, { delay: rnd(60, 130) });
   await sleep(rnd(400, 900));
-  await humanClick(gv, gv.locator(SEL.gv.sendTo).first());
-  await sleep(rnd(400, 900));
-  await pasteInto(gv, gv.locator(SEL.gv.messageInput).first(), message);
+  const sendTo = gv.locator(SEL.gv.sendTo).first();
+  if ((await sendTo.count()) > 0 && (await sendTo.isVisible().catch(() => false))) {
+    await humanClick(gv, sendTo);
+  } else {
+    await gv.keyboard.press("Enter");
+  }
+  await sleep(rnd(400, 700));
+  await confirmGoogleVoiceRecipient(gv, phoneText);
+  await fillGoogleVoiceMessage(gv, message);
   await sleep(rnd(300, 700));
   if (!actuallySend) {
     log.ok(
