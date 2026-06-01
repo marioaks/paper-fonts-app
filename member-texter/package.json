@@ -1,0 +1,20 @@
+{
+  "name": "member-texter",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Single-file, local assistant that texts (Google Voice) or emails (Gmail) your 'Not started' members one by one and marks the outreach survey.",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "member-texter": "member-texter.mjs"
+  },
+  "scripts": {
+    "start": "node member-texter.mjs",
+    "dry-run": "node member-texter.mjs --dry-run"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
