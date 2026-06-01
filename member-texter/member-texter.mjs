@@ -15,32 +15,20 @@
  * and an email to one person, and prefers texting when a number is available.
  *
  * EVERYTHING RUNS LOCALLY. It only talks to your member site, Google Voice, and
- * Gmail — the same servers your browser already uses. No data is sent anywhere
- * else, and you log in by hand once in the browser window it opens.
+ * Gmail — the same servers your browser already uses. No passwords are stored;
+ * you log in by hand in the Chrome window it opens, and the script waits until
+ * it can see the real member list before doing anything.
  *
  * --------------------------------------------------------------------------
  * USAGE
  *   node member-texter.mjs --list "<people-list-url>" --subject "<email subject>"
  *
- * COMMON OPTIONS
- *   --list <url>       (required) The people-list page to work through.
- *   --subject <text>   Subject line for any emails sent (Gmail fallback).
- *   --dry-run          Walk everyone and print the plan; send/submit nothing.
- *   --max <n>          Stop after sending to n people this run.
- *   --min-gap <sec>    Min pause between people (default 15).
- *   --max-gap <sec>    Max pause between people (default 40).
- *   --profile <dir>    Chrome profile folder to remember your logins
- *                      (default ./chrome-profile).
- *   --log <file>       "Already contacted" log (default ./contact-log.json).
- *   --gv-url <url>     Google Voice URL (default https://voice.google.com).
- *   --gmail-url <url>  Gmail URL (default https://mail.google.com).
- *   --chromium         Use Playwright's bundled Chromium instead of your
- *                      installed Google Chrome (mainly for testing).
- *   --headless         Run without a visible window (not recommended for real use).
- *   -h, --help         Show this help.
- *
- * FIRST RUN: a Chrome window opens with three tabs (your app, Google Voice,
- * Gmail). Log in to each, then press Enter in the terminal to begin.
+ * FIRST RUN
+ *   Chrome opens. Log in to your app in the first tab (and Google Voice / Gmail
+ *   in the others when you are ready). The script WAITS until it sees member rows
+ *   on your list page — it will not exit early or close the window while you are
+ *   still on a login screen. After the first successful login, the same
+ *   --profile folder remembers your session for later runs.
  * --------------------------------------------------------------------------
  */
 
@@ -48,7 +36,6 @@ import { chromium } from "playwright";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
-import { createInterface } from "node:readline/promises";
 import process from "node:process";
 
 // --- Selectors (from the live app / Google Voice / Gmail) -------------------
@@ -58,8 +45,8 @@ const SEL = {
   rowName: ".emp-flex", // index 1 holds the name (0 = avatar initials)
   personPhone: '[data-testid="userPhone"]',
   personEmail: '[data-testid="user-email"]',
-  copyMessage: "copy initial message", // accessible name / visible text
-  surveyWaiting: "Waiting on response", // first survey radio
+  copyMessage: "copy initial message",
+  surveyWaiting: "Waiting on response",
   surveySubmit: "#submitContactOutreachButton",
   gv: {
     compose: "Send new message",
@@ -75,6 +62,9 @@ const SEL = {
     send: /^send/i,
   },
 };
+
+// URL path fragments that often mean "login / auth", not the member list.
+const LOGIN_PATH_HINTS = /\/(login|log-in|signin|sign-in|auth|oauth|sso)(\/|$)/i;
 
 // --- Small utilities --------------------------------------------------------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -103,7 +93,6 @@ function maskEmail(e) {
   return `${u.slice(0, 1)}***@${host}`;
 }
 
-// Resolve when ANY of the promises resolves; reject only if all reject.
 function waitAny(promises) {
   return new Promise((resolve, reject) => {
     let failures = 0;
@@ -124,7 +113,6 @@ async function safeText(locator) {
   }
 }
 
-// Move the mouse to an element and click a random point inside it (looks human).
 async function humanClick(page, locator) {
   try {
     await locator.scrollIntoViewIfNeeded();
@@ -140,20 +128,17 @@ async function humanClick(page, locator) {
       return;
     }
   } catch {
-    /* fall through to a normal click */
+    /* fall through */
   }
   await locator.click();
 }
 
-// Clear whatever is currently in a focused field (defends against drafts /
-// pre-filled values), keeping the field's element focused.
 async function clearField(page, locator) {
   await locator.click();
   await page.keyboard.press(`${PASTE_MOD}+A`);
   await page.keyboard.press("Delete");
 }
 
-// Type text one key at a time with irregular timing (content is never altered).
 async function humanType(page, locator, text) {
   await clearField(page, locator);
   for (const ch of text) {
@@ -164,7 +149,6 @@ async function humanType(page, locator, text) {
   }
 }
 
-// Click a button/element by its accessible name, falling back to visible text.
 async function clickByName(page, name) {
   const byRole = page.getByRole("button", { name }).first();
   try {
@@ -178,7 +162,6 @@ async function clickByName(page, name) {
   await humanClick(page, page.getByText(name, { exact: false }).first());
 }
 
-// Read the current text of an input/textarea or contenteditable field.
 async function fieldText(locator) {
   try {
     return (await locator.inputValue()).trim();
@@ -187,9 +170,6 @@ async function fieldText(locator) {
   }
 }
 
-// Paste the previously-copied message into a field. Clears it first, then tries
-// a real paste (matches the manual workflow); if that leaves the field empty
-// (e.g. headless), falls back to inserting the captured text.
 async function pasteInto(page, locator, fallbackText) {
   await locator.scrollIntoViewIfNeeded();
   await clearField(page, locator);
@@ -202,7 +182,130 @@ async function pasteInto(page, locator, fallbackText) {
   }
 }
 
-// --- Contact log (dedupe so nobody is contacted twice) ----------------------
+// --- Login / list detection (no credentials stored) -------------------------
+/** How many member rows are visible on the current page? */
+async function countPersonRows(page) {
+  try {
+    return await page.locator(SEL.personRow).count();
+  } catch {
+    return 0;
+  }
+}
+
+/** Heuristic: page looks like a login screen, not the member list. */
+async function looksLikeLoginPage(page) {
+  const rows = await countPersonRows(page);
+  if (rows > 0) return false;
+
+  let path = "";
+  try {
+    path = new URL(page.url()).pathname;
+  } catch {
+    path = page.url();
+  }
+  if (LOGIN_PATH_HINTS.test(path)) return true;
+
+  try {
+    const pw = page.locator('input[type="password"]:visible');
+    if ((await pw.count()) > 0) return true;
+  } catch {
+    /* ignore */
+  }
+
+  try {
+    const signIn = page.getByRole("button", { name: /sign\s*in|log\s*in/i });
+    if ((await signIn.count()) > 0) return true;
+  } catch {
+    /* ignore */
+  }
+
+  return false;
+}
+
+/** True when we can see the real people list (at least one member row). */
+async function isMemberListReady(page, listReadySelector) {
+  if (listReadySelector) {
+    try {
+      return (await page.locator(listReadySelector).count()) > 0;
+    } catch {
+      return false;
+    }
+  }
+  return (await countPersonRows(page)) > 0;
+}
+
+/**
+ * Block until the member list is visible at --list, or until timeout.
+ * The user logs in manually in Chrome; we never ask for or store passwords.
+ */
+async function waitForMemberList(app, args, { phase = "startup" } = {}) {
+  if (args.skipLoginWait) return true;
+  if (args.headless) {
+    log.err(
+      "Headless mode cannot complete a manual login. Run without --headless so you can log in in the browser window.",
+    );
+    return false;
+  }
+
+  const timeoutMs = args.loginTimeoutMin * 60 * 1000;
+  const started = Date.now();
+  let lastLog = 0;
+
+  log.info(
+    phase === "startup"
+      ? "Waiting for you to log in. Use the Chrome window — the script will start automatically once the member list appears."
+      : "Member list not visible (login may have expired). Log in again in Chrome; waiting for the list...",
+  );
+  log.info(`List URL: ${args.list}`);
+  log.info(`Chrome profile (sessions are saved here): ${args.profile}`);
+
+  for (;;) {
+    await app.bringToFront();
+    await app.goto(args.list, { waitUntil: "domcontentloaded" }).catch(() => {});
+    await sleep(800);
+
+    if (await isMemberListReady(app, args.listReady)) {
+      const n = await countPersonRows(app);
+      log.ok(`Member list detected (${n} row(s) visible). Starting outreach.`);
+      return true;
+    }
+
+    const elapsed = Date.now() - started;
+    if (elapsed >= timeoutMs) {
+      log.err(
+        `Timed out after ${args.loginTimeoutMin} minutes waiting for the member list. ` +
+          "Log in in Chrome, confirm --list is the correct people-list URL, then run again.",
+      );
+      return false;
+    }
+
+    if (Date.now() - lastLog > 8000) {
+      lastLog = Date.now();
+      const onLogin = await looksLikeLoginPage(app);
+      const hint = onLogin
+        ? "Looks like a login page — finish signing in in the Chrome tab."
+        : "Still waiting — open your people list in Chrome (or finish loading).";
+      const left = Math.ceil((timeoutMs - elapsed) / 60000);
+      log.step(`${hint} (${left} min left)`);
+    }
+
+    await sleep(2000);
+  }
+}
+
+/** Count rows whose badge is "Not started". */
+async function countNotStartedRows(page) {
+  const rows = page.locator(SEL.personRow);
+  const count = await rows.count();
+  let n = 0;
+  for (let i = 0; i < count; i++) {
+    const badge = await safeText(rows.nth(i).locator(SEL.rowBadge));
+    if (norm(badge) === "not started") n++;
+  }
+  return n;
+}
+
+// --- Contact log ------------------------------------------------------------
 async function openLog(path) {
   let entries = [];
   try {
@@ -241,9 +344,6 @@ async function openLog(path) {
 }
 
 // --- Page actions -----------------------------------------------------------
-
-// Find and open the next "Not started" person we haven't visited this run.
-// Returns { name } after navigating to their page, or null if none remain.
 async function openNextNotStarted(app, processedKeys) {
   const rows = app.locator(SEL.personRow);
   const count = await rows.count();
@@ -284,7 +384,6 @@ async function readTestId(page, testid) {
   }
 }
 
-// Click "copy initial message" and read back exactly what it copied.
 async function copyInitialMessage(app) {
   await app.bringToFront();
   await clickByName(app, SEL.copyMessage);
@@ -293,7 +392,7 @@ async function copyInitialMessage(app) {
     const text = await app.evaluate(async () => await navigator.clipboard.readText());
     return (text || "").trim();
   } catch {
-    return ""; // clipboard still holds it for a real paste even if we can't read it
+    return "";
   }
 }
 
@@ -301,7 +400,6 @@ async function sendText(gv, phoneText, message) {
   await gv.bringToFront();
   await clickByName(gv, SEL.gv.compose);
   await sleep(rnd(500, 1100));
-  // Type the number into the active recipient input.
   await gv.keyboard.type(phoneText, { delay: rnd(60, 130) });
   await sleep(rnd(400, 900));
   await humanClick(gv, gv.locator(SEL.gv.sendTo).first());
@@ -331,7 +429,6 @@ async function sendEmail(gmail, toEmail, subject, message) {
   await sleep(rnd(1200, 2200));
 }
 
-// Answer the survey ("Waiting on response") and submit it.
 async function markSurvey(app) {
   await app.bringToFront();
   let radio = app.getByRole("radio", { name: new RegExp(SEL.surveyWaiting, "i") }).first();
@@ -343,6 +440,19 @@ async function markSurvey(app) {
   await humanClick(app, app.locator(SEL.surveySubmit).first());
   await sleep(rnd(800, 1600));
   await app.waitForLoadState("domcontentloaded").catch(() => {});
+}
+
+/**
+ * Decide why there is no next "Not started" person.
+ * Returns: "done" | "login" | "empty-list"
+ */
+async function noMoreNotStartedReason(app, args) {
+  if (!(await isMemberListReady(app, args.listReady))) {
+    return "login";
+  }
+  const notStarted = await countNotStartedRows(app);
+  if (notStarted === 0) return "done";
+  return "empty-list";
 }
 
 // --- Orchestration ----------------------------------------------------------
@@ -361,47 +471,95 @@ export async function main(argv) {
     skippedNoContact: 0,
     skippedAlready: 0,
     failed: 0,
+    stoppedReason: "",
   };
 
-  const context = await chromium.launchPersistentContext(args.profile, {
-    channel: args.chromium ? undefined : args.channel,
-    headless: args.headless,
-    viewport: null,
-    args: ["--disable-blink-features=AutomationControlled"],
-    permissions: ["clipboard-read", "clipboard-write"],
-  });
+  let context;
+  let keepBrowserOpen = args.keepOpen;
 
-  const app = await context.newPage();
-  const gv = await context.newPage();
-  await gv.goto(args.gvUrl, { waitUntil: "domcontentloaded" }).catch(() => {});
-  let gmail = null;
-
-  if (!args.headless && process.stdin.isTTY && !args.dryRun) {
-    await app.goto(args.list, { waitUntil: "domcontentloaded" }).catch(() => {});
-    await prompt("Log in to your app, Google Voice, and Gmail in the open tabs, then press Enter to begin");
-  }
-
-  const processedKeys = new Set();
   try {
+    context = await chromium.launchPersistentContext(args.profile, {
+      channel: args.chromium ? undefined : args.channel,
+      headless: args.headless,
+      viewport: null,
+      args: ["--disable-blink-features=AutomationControlled"],
+      permissions: ["clipboard-read", "clipboard-write"],
+    });
+
+    const app = await context.newPage();
+    const gv = await context.newPage();
+    await gv.goto(args.gvUrl, { waitUntil: "domcontentloaded" }).catch(() => {});
+
+    if (!args.dryRun) {
+      const ready = await waitForMemberList(app, args, { phase: "startup" });
+      if (!ready) {
+        summary.stoppedReason = "login-timeout";
+        keepBrowserOpen = true;
+        return summary;
+      }
+    } else {
+      await app.goto(args.list, { waitUntil: "domcontentloaded" }).catch(() => {});
+      if (!(await isMemberListReady(app, args.listReady))) {
+        log.warn(
+          "Dry run: member list not visible yet (you may still be on login). " +
+            "Log in in Chrome, then run again without --dry-run or wait until rows appear.",
+        );
+      }
+    }
+
+    const processedKeys = new Set();
+
     for (;;) {
       if (args.max && summary.sent >= args.max) {
+        summary.stoppedReason = "max-reached";
         log.info(`Reached --max ${args.max}; stopping.`);
         break;
       }
 
       await app.bringToFront();
       await app.goto(args.list, { waitUntil: "domcontentloaded" });
-      await app.locator(SEL.personRow).first().waitFor({ state: "attached", timeout: 20000 }).catch(() => {});
+      await sleep(500);
+
+      if (!(await isMemberListReady(app, args.listReady))) {
+        log.warn("Lost access to the member list (session may have expired).");
+        const again = await waitForMemberList(app, args, { phase: "reauth" });
+        if (!again) {
+          summary.stoppedReason = "login-lost";
+          keepBrowserOpen = true;
+          break;
+        }
+        continue;
+      }
 
       let person;
       try {
         person = await openNextNotStarted(app, processedKeys);
       } catch (e) {
         log.err(`Could not read the list: ${e.message}`);
+        summary.stoppedReason = "list-error";
+        keepBrowserOpen = true;
         break;
       }
+
       if (!person) {
-        log.info('No more "Not started" people. Done.');
+        const reason = await noMoreNotStartedReason(app, args);
+        if (reason === "login") {
+          log.warn("Member list disappeared — waiting for login again...");
+          const again = await waitForMemberList(app, args, { phase: "reauth" });
+          if (!again) {
+            summary.stoppedReason = "login-lost";
+            keepBrowserOpen = true;
+          }
+          if (again) continue;
+          break;
+        }
+        if (reason === "done") {
+          summary.stoppedReason = "completed";
+          log.info('No more "Not started" people. Done.');
+        } else {
+          summary.stoppedReason = "no-not-started";
+          log.info('List is visible but no "Not started" rows remain. Done.');
+        }
         break;
       }
 
@@ -435,10 +593,7 @@ export async function main(argv) {
           summary.texted++;
           log.ok(`Texted ${person.name} ${maskPhone(phoneText)}`);
         } else {
-          if (!gmail) {
-            gmail = await context.newPage();
-            await gmail.goto(args.gmailUrl, { waitUntil: "domcontentloaded" }).catch(() => {});
-          }
+          const gmail = await getOrOpenGmail(context, args);
           await sendEmail(gmail, emailText, args.subject, message);
           summary.emailed++;
           log.ok(`Emailed ${person.name} ${maskEmail(emailText)}`);
@@ -468,24 +623,30 @@ export async function main(argv) {
       }
     }
   } finally {
-    await context.close();
+    if (context) {
+      if (keepBrowserOpen) {
+        log.info("Leaving Chrome open so you can finish logging in or inspect the page.");
+        log.info("Close the browser window yourself when you are done.");
+      } else {
+        await context.close();
+      }
+    }
   }
 
   log.info(
     `Summary: sent=${summary.sent} (texted=${summary.texted}, emailed=${summary.emailed}) ` +
       `skipped(no-contact)=${summary.skippedNoContact} skipped(already)=${summary.skippedAlready} ` +
-      `failed=${summary.failed}`,
+      `failed=${summary.failed} reason=${summary.stoppedReason || "unknown"}`,
   );
   return summary;
 }
 
-async function prompt(question) {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    await rl.question(`${question} `);
-  } finally {
-    rl.close();
-  }
+let gmailPageCache = null;
+async function getOrOpenGmail(context, args) {
+  if (gmailPageCache && !gmailPageCache.isClosed()) return gmailPageCache;
+  gmailPageCache = await context.newPage();
+  await gmailPageCache.goto(args.gmailUrl, { waitUntil: "domcontentloaded" }).catch(() => {});
+  return gmailPageCache;
 }
 
 export function parseArgs(argv) {
@@ -503,6 +664,10 @@ export function parseArgs(argv) {
     max: 0,
     minGap: 15,
     maxGap: 40,
+    loginTimeoutMin: 30,
+    skipLoginWait: false,
+    listReady: "",
+    keepOpen: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -515,12 +680,16 @@ export function parseArgs(argv) {
       case "--gv-url": args.gvUrl = next(); break;
       case "--gmail-url": args.gmailUrl = next(); break;
       case "--channel": args.channel = next(); break;
+      case "--list-ready": args.listReady = next(); break;
+      case "--login-timeout": args.loginTimeoutMin = Number(next()) || 30; break;
       case "--chromium": args.chromium = true; break;
       case "--headless": args.headless = true; break;
       case "--dry-run": args.dryRun = true; break;
       case "--max": args.max = Number(next()) || 0; break;
       case "--min-gap": args.minGap = Number(next()) || 0; break;
       case "--max-gap": args.maxGap = Number(next()) || 0; break;
+      case "--skip-login-wait": args.skipLoginWait = true; break;
+      case "--keep-open": args.keepOpen = true; break;
       case "-h":
       case "--help":
         printHelp();
@@ -529,6 +698,7 @@ export function parseArgs(argv) {
       default:
         if (a.startsWith("--list=")) args.list = a.slice(7);
         else if (a.startsWith("--subject=")) args.subject = a.slice(10);
+        else if (a.startsWith("--login-timeout=")) args.loginTimeoutMin = Number(a.slice(16)) || 30;
     }
   }
   if (args.maxGap < args.minGap) args.maxGap = args.minGap;
@@ -543,30 +713,38 @@ function printHelp() {
       "Usage:",
       '  node member-texter.mjs --list "<people-list-url>" --subject "<email subject>"',
       "",
+      "Login (secure — no passwords stored):",
+      "  Chrome opens. Log in by hand in the browser. The script waits until it",
+      "  sees member rows (button.person-list-item) on your --list page, then starts.",
+      "  It will NOT exit early just because you are still on a login screen.",
+      "  Sessions are saved in --profile for later runs.",
+      "",
       "Options:",
-      "  --list <url>      (required) people-list page to work through",
-      "  --subject <text>  subject for any emails (Gmail fallback)",
-      "  --dry-run         show the plan; send/submit nothing",
-      "  --max <n>         stop after n sends this run",
-      "  --min-gap <sec>   min pause between people (default 15)",
-      "  --max-gap <sec>   max pause between people (default 40)",
-      "  --profile <dir>   Chrome profile folder (default ./chrome-profile)",
-      "  --log <file>      already-contacted log (default ./contact-log.json)",
-      "  --gv-url <url>    Google Voice URL",
-      "  --gmail-url <url> Gmail URL",
-      "  --chromium        use bundled Chromium instead of installed Chrome",
-      "  --headless        run without a visible window",
-      "  -h, --help        show this help",
+      "  --list <url>           (required) people-list page URL",
+      "  --subject <text>       email subject (Gmail fallback)",
+      "  --login-timeout <min>  max minutes to wait for login (default 30)",
+      "  --list-ready <css>     extra selector that must exist when list is ready",
+      "  --keep-open            always leave Chrome open when the script exits",
+      "  --skip-login-wait      for automated tests only — do not use for real runs",
+      "  --dry-run              plan only; send/submit nothing",
+      "  --max <n>              stop after n sends",
+      "  --profile <dir>        Chrome profile (default ./chrome-profile)",
+      "  -h, --help             show this help",
     ].join("\n"),
   );
 }
 
-// Run when invoked directly (not when imported for testing).
 const invokedDirectly =
   process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (invokedDirectly) {
   main(process.argv.slice(2))
-    .then((s) => process.exit(s && s.failed > 0 ? 1 : 0))
+    .then((s) => {
+      const bad =
+        (s?.failed ?? 0) > 0 ||
+        s?.stoppedReason === "login-timeout" ||
+        s?.stoppedReason === "login-lost";
+      process.exit(bad ? 1 : 0);
+    })
     .catch((e) => {
       log.err(e?.stack || e?.message || String(e));
       process.exit(1);
