@@ -213,11 +213,7 @@ async function countPersonRows(page, { visibleOnly = false } = {}) {
     contexts.push({ name: "iframe", root: frame });
   }
   for (const { name, root } of contexts) {
-    try {
-    const inner = await page.locator(".person-list-item button").count();
-    log.info(`Debug: ".person-list-item button" count=${inner}`);
-  } catch { /* ignore */ }
-  for (const sel of ROW_SELECTORS) {
+    for (const sel of ROW_SELECTORS) {
       try {
         const loc = root.locator(sel);
         const total = await loc.count();
@@ -262,28 +258,23 @@ async function looksLikeLoginPage(page) {
   return false;
 }
 
-/** Log what the script can (or cannot) see on the page — run with --debug-list */
+/** One-line diagnostics — only when you pass --debug-list */
 async function debugListDetection(page, args) {
-  const info = await countPersonRows(page, { visibleOnly: true });
   const dom = await countPersonRows(page, { visibleOnly: false });
-  log.info(`Debug: url=${page.url()}`);
-  log.info(`Debug: visible rows=${info.count} via "${info.selector}" (${info.frame}); in DOM=${dom.count}`);
+  const vis = await countPersonRows(page, { visibleOnly: true });
+  const parts = [
+    `url=${page.url()}`,
+    `DOM=${dom.count} (${dom.selector})`,
+    `visible=${vis.count}`,
+  ];
   if (args.listReady) {
     try {
-      const extra = await page.locator(args.listReady).count();
-      log.info(`Debug: --list-ready "${args.listReady}" count=${extra}`);
-    } catch (e) {
-      log.info(`Debug: --list-ready failed: ${e.message}`);
-    }
-  }
-  for (const sel of ROW_SELECTORS) {
-    try {
-      const c = await page.locator(sel).count();
-      if (c) log.info(`Debug: selector "${sel}" count=${c} on main frame`);
+      parts.push(`list-ready=${await page.locator(args.listReady).count()}`);
     } catch {
-      /* ignore */
+      parts.push("list-ready=error");
     }
   }
+  log.info(`[debug-list] ${parts.join(" | ")}`);
 }
 
 /** True when the member list is present (DOM counts — not only Playwright "visible"). */
