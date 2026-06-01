@@ -59,6 +59,7 @@ const SEL = {
   personPhone: '[data-testid="userPhone"]',
   personEmail: '[data-testid="user-email"]',
   copyMessage: "copy initial message",
+  copyMessageButton: 'button:has-text("copy initial message")',
   surveyWaiting: "Waiting on response",
   surveySubmit: "#submitContactOutreachButton",
   gv: {
@@ -621,16 +622,62 @@ async function readTestId(page, testid) {
   }
 }
 
-async function copyInitialMessage(app) {
-  await app.bringToFront();
-  await clickByName(app, SEL.copyMessage);
-  await sleep(rnd(250, 600));
+async function readPageClipboard(page) {
   try {
-    const text = await app.evaluate(async () => await navigator.clipboard.readText());
-    return (text || "").trim();
+    return (await page.evaluate(async () => await navigator.clipboard.readText())) || "";
   } catch {
     return "";
   }
+}
+
+/** Click the real <button> that wraps "copy initial message" (text may be in nested divs). */
+async function clickCopyInitialMessageButton(app) {
+  await app.bringToFront();
+  const candidates = [
+    app.getByRole("button", { name: /copy initial message/i }),
+    app.locator(SEL.copyMessageButton),
+    app.locator("button").filter({ hasText: /copy initial message/i }),
+  ];
+  for (const loc of candidates) {
+    try {
+      const btn = loc.first();
+      if ((await btn.count()) === 0) continue;
+      await btn.scrollIntoViewIfNeeded();
+      await humanClick(app, btn);
+      return;
+    } catch {
+      /* try next locator */
+    }
+  }
+  throw new Error('Could not find the "copy initial message" button on this page');
+}
+
+/**
+ * Click copy, then wait until the clipboard changes (proves the site's copy ran).
+ */
+async function copyInitialMessage(app) {
+  await app.bringToFront();
+  const before = (await readPageClipboard(app)).trim();
+  await clickCopyInitialMessageButton(app);
+
+  const deadline = Date.now() + 8000;
+  let after = before;
+  while (Date.now() < deadline) {
+    await sleep(150);
+    after = (await readPageClipboard(app)).trim();
+    if (after && after !== before) {
+      log.step(`Copied message (${after.length} characters) from the member page`);
+      return after;
+    }
+  }
+
+  if (after && after === before) {
+    throw new Error(
+      'Clicked "copy initial message" but the clipboard did not change — still showing your previous copy. ' +
+        "Try clicking the button once manually in Chrome to confirm it works.",
+    );
+  }
+  throw new Error('Clicked "copy initial message" but could not read the clipboard');
 }
 
 async function dismissGoogleVoiceOverlays(gv) {
@@ -649,15 +696,21 @@ async function dismissGoogleVoiceOverlays(gv) {
 async function resetGoogleVoiceCompose(gv, args) {
   await gv.bringToFront();
   await dismissGoogleVoiceOverlays(gv);
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     await gv.keyboard.press("Escape");
     await sleep(220);
   }
-  const msgOpen = await gv.locator(SEL.gv.messageInput).first().isVisible().catch(() => false);
-  if (msgOpen && args?.gvUrl) {
-    await gv.goto(args.gvUrl, { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => {});
+  if (args?.gvUrl) {
+    await gv.goto(args.gvUrl, { waitUntil: "load", timeout: 45000 }).catch(() => {});
     await sleep(rnd(600, 1000));
   }
+}
+
+/** Start a brand-new Voice thread (like after sending) — used every text and after each dry run. */
+async function startNewGoogleVoiceMessage(gv, args) {
+  await resetGoogleVoiceCompose(gv, args);
+  await clickByName(gv, SEL.gv.compose);
+  await sleep(rnd(500, 900));
 }
 
 async function focusGoogleVoiceRecipientField(gv) {
@@ -760,10 +813,8 @@ async function sendText(gv, phoneText, message, { actuallySend = true, args } = 
   if (args && !(await ensureGoogleVoiceReady(gv, args))) {
     throw new Error("Google Voice is not signed in");
   }
-  await resetGoogleVoiceCompose(gv, args);
+  await startNewGoogleVoiceMessage(gv, args);
   await gv.bringToFront();
-  await clickByName(gv, SEL.gv.compose);
-  await sleep(rnd(500, 1100));
   await addGoogleVoiceRecipient(gv, phoneText);
   await sleep(rnd(400, 700));
   await confirmGoogleVoiceRecipient(gv, phoneText);
@@ -773,6 +824,8 @@ async function sendText(gv, phoneText, message, { actuallySend = true, args } = 
     log.ok(
       `DRY RUN: Google Voice compose filled for ${maskPhone(phoneText)} — Send was NOT clicked`,
     );
+    await startNewGoogleVoiceMessage(gv, args);
+    log.step("DRY RUN: opened a fresh Google Voice message for the next person");
     return;
   }
   await humanClick(gv, gv.locator(SEL.gv.send).first());
@@ -995,6 +1048,9 @@ export async function main(argv) {
         }
 
         const message = await copyInitialMessage(app);
+        if (!message.trim()) {
+          throw new Error('Empty message after copy initial message');
+        }
         const actuallySend = !args.dryRun;
 
         if (channel === "text") {
@@ -1047,8 +1103,8 @@ export async function main(argv) {
         log.err(`Problem with ${person.name}: ${e.message}`);
         if (channel === "text") {
           try {
-            await resetGoogleVoiceCompose(gv, args);
-            log.step("Reset Google Voice compose for the next person.");
+            await startNewGoogleVoiceMessage(gv, args);
+            log.step("Reset Google Voice — fresh message compose for the next person.");
           } catch {
             /* ignore cleanup errors */
           }
