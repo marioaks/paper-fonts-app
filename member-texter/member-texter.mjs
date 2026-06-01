@@ -501,7 +501,7 @@ async function copyInitialMessage(app) {
   }
 }
 
-async function sendText(gv, phoneText, message) {
+async function sendText(gv, phoneText, message, { actuallySend = true } = {}) {
   await gv.bringToFront();
   await clickByName(gv, SEL.gv.compose);
   await sleep(rnd(500, 1100));
@@ -511,11 +511,17 @@ async function sendText(gv, phoneText, message) {
   await sleep(rnd(400, 900));
   await pasteInto(gv, gv.locator(SEL.gv.messageInput).first(), message);
   await sleep(rnd(300, 700));
+  if (!actuallySend) {
+    log.ok(
+      `DRY RUN: Google Voice compose filled for ${maskPhone(phoneText)} — Send was NOT clicked`,
+    );
+    return;
+  }
   await humanClick(gv, gv.locator(SEL.gv.send).first());
   await sleep(rnd(1200, 2200));
 }
 
-async function sendEmail(gmail, toEmail, subject, message) {
+async function sendEmail(gmail, toEmail, subject, message, { actuallySend = true } = {}) {
   await gmail.bringToFront();
   await clickByName(gmail, SEL.gmail.compose);
   await sleep(rnd(600, 1200));
@@ -525,6 +531,12 @@ async function sendEmail(gmail, toEmail, subject, message) {
   await sleep(rnd(200, 500));
   await pasteInto(gmail, gmail.locator(SEL.gmail.body).first(), message);
   await sleep(rnd(300, 700));
+  if (!actuallySend) {
+    log.ok(
+      `DRY RUN: Gmail compose filled for ${maskEmail(toEmail)} — Send was NOT clicked`,
+    );
+    return;
+  }
   const sendBtn = gmail.getByRole("button", { name: SEL.gmail.send }).first();
   try {
     await sendBtn.click({ timeout: 3000 });
@@ -571,6 +583,7 @@ export async function main(argv) {
   const contactLog = await openLog(args.log);
   const summary = {
     sent: 0,
+    rehearsed: 0,
     texted: 0,
     emailed: 0,
     skippedNoContact: 0,
@@ -619,10 +632,17 @@ export async function main(argv) {
       log.ok(`Member list detected (${info.count} row(s)).`);
     }
 
+    if (args.dryRun) {
+      log.info(
+        "DRY RUN: will walk through Google Voice / Gmail compose but will NOT click Send or submit the survey.",
+      );
+    }
+
     const processedKeys = new Set();
 
     for (;;) {
-      if (args.max && summary.sent >= args.max) {
+      const doneCount = args.dryRun ? summary.rehearsed : summary.sent;
+      if (args.max && doneCount >= args.max) {
         summary.stoppedReason = "max-reached";
         log.info(`Reached --max ${args.max}; stopping.`);
         break;
@@ -690,42 +710,59 @@ export async function main(argv) {
           continue;
         }
 
-        if (args.dryRun) {
+        if (args.planOnly) {
           const via = channel === "text" ? `text ${maskPhone(phoneText)}` : `email ${maskEmail(emailText)}`;
           log.info(`Plan -> ${person.name} via ${via}`);
           continue;
         }
 
         const message = await copyInitialMessage(app);
+        const actuallySend = !args.dryRun;
 
         if (channel === "text") {
-          await sendText(gv, phoneText, message);
-          summary.texted++;
-          log.ok(`Texted ${person.name} ${maskPhone(phoneText)}`);
+          await sendText(gv, phoneText, message, { actuallySend });
+          if (args.dryRun) {
+            summary.rehearsed++;
+            log.ok(`DRY RUN rehearsed text flow for ${person.name} ${maskPhone(phoneText)}`);
+          } else {
+            summary.texted++;
+            summary.sent++;
+            log.ok(`Texted ${person.name} ${maskPhone(phoneText)}`);
+          }
         } else {
           const gmail = await getOrOpenGmail(context, args);
-          await sendEmail(gmail, emailText, args.subject, message);
-          summary.emailed++;
-          log.ok(`Emailed ${person.name} ${maskEmail(emailText)}`);
+          await sendEmail(gmail, emailText, args.subject, message, { actuallySend });
+          if (args.dryRun) {
+            summary.rehearsed++;
+            log.ok(`DRY RUN rehearsed email flow for ${person.name} ${maskEmail(emailText)}`);
+          } else {
+            summary.emailed++;
+            summary.sent++;
+            log.ok(`Emailed ${person.name} ${maskEmail(emailText)}`);
+          }
         }
 
-        await markSurvey(app);
+        if (!args.dryRun) {
+          await markSurvey(app);
+          await contactLog.add({
+            name: person.name,
+            personUrl,
+            channel,
+            phoneKey: channel === "text" ? digitsOnly(phoneText) : "",
+            emailKey: channel === "email" ? emailText.trim().toLowerCase() : "",
+            messagePreview: message.replace(/\s+/g, " ").slice(0, 80),
+            sentAt: new Date().toISOString(),
+          });
+        } else {
+          log.step(`DRY RUN: survey not submitted for ${person.name}`);
+        }
 
-        await contactLog.add({
-          name: person.name,
-          personUrl,
-          channel,
-          phoneKey: channel === "text" ? digitsOnly(phoneText) : "",
-          emailKey: channel === "email" ? emailText.trim().toLowerCase() : "",
-          messagePreview: message.replace(/\s+/g, " ").slice(0, 80),
-          sentAt: new Date().toISOString(),
-        });
-        summary.sent++;
-
-        if (!args.max || summary.sent < args.max) {
+        if (!args.dryRun && (!args.max || summary.sent < args.max)) {
           const waitMs = rnd(args.minGap * 1000, args.maxGap * 1000);
           log.step(`Pausing ~${Math.round(waitMs / 1000)}s before the next person...`);
           await sleep(waitMs);
+        } else if (args.dryRun) {
+          await sleep(rnd(800, 2000));
         }
       } catch (e) {
         summary.failed++;
@@ -743,8 +780,11 @@ export async function main(argv) {
     }
   }
 
+  const sentPart = args.dryRun
+    ? `rehearsed=${summary.rehearsed} (nothing sent)`
+    : `sent=${summary.sent} (texted=${summary.texted}, emailed=${summary.emailed})`;
   log.info(
-    `Summary: sent=${summary.sent} (texted=${summary.texted}, emailed=${summary.emailed}) ` +
+    `Summary: ${sentPart} ` +
       `skipped(no-contact)=${summary.skippedNoContact} skipped(already)=${summary.skippedAlready} ` +
       `failed=${summary.failed} reason=${summary.stoppedReason || "unknown"}`,
   );
@@ -771,6 +811,7 @@ export function parseArgs(argv) {
     chromium: false,
     headless: false,
     dryRun: false,
+    planOnly: false,
     max: 0,
     minGap: 15,
     maxGap: 40,
@@ -797,6 +838,7 @@ export function parseArgs(argv) {
       case "--chromium": args.chromium = true; break;
       case "--headless": args.headless = true; break;
       case "--dry-run": args.dryRun = true; break;
+      case "--plan-only": args.planOnly = true; break;
       case "--max": args.max = Number(next()) || 0; break;
       case "--min-gap": args.minGap = Number(next()) || 0; break;
       case "--max-gap": args.maxGap = Number(next()) || 0; break;
@@ -846,7 +888,8 @@ function printHelp() {
       "  --list-detect-sec <n>  seconds to wait for rows after load (default 45)",
       "  --skip-login-wait      skip the login wait (use when already logged in)",
       "  --already-logged-in    same as --skip-login-wait",
-      "  --dry-run              plan only; send/submit nothing",
+      "  --dry-run              rehearse Voice/Gmail (fill compose) but never click Send; no survey",
+      "  --plan-only            list who would be contacted only (no Voice/Gmail UI)",
       "  --max <n>              stop after n sends",
       "  --profile <dir>        Chrome profile (default ./chrome-profile)",
       "  -h, --help             show this help",

@@ -55,3 +55,6 @@ The script does **not** refresh the list page every few seconds while waiting; i
 List → open next **Not started** row → person page → phone? text via Google Voice : email via Gmail → survey **Waiting on response** → submit → back to list.
 
 Never double-contacts anyone (`contact-log.json`). Prefers text over email when both could apply.
+
+
+**Dry run** rehearses Google Voice / Gmail (fill compose, no Send). Use `--plan-only` for a fast list-only preview.
