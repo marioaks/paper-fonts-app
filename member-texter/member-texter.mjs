@@ -43,6 +43,7 @@ import process from "node:process";
 const ROW_SELECTORS = [
   ".person-list-item",
   "button.person-list-item",
+  ".person-list-item button",
   '[class*="person-list-item"]',
 ];
 
@@ -194,7 +195,10 @@ function urlsRoughlyMatch(current, expected) {
   try {
     const a = new URL(current);
     const b = new URL(expected);
-    return a.origin === b.origin && a.pathname === b.pathname;
+    const norm = (p) => (p.replace(/\/$/, "") || "/");
+    if (a.origin !== b.origin) return false;
+    if (norm(a.pathname) === norm(b.pathname)) return true;
+    return a.href.startsWith(b.origin + norm(b.pathname));
   } catch {
     return current === expected || current.startsWith(expected);
   }
@@ -209,7 +213,11 @@ async function countPersonRows(page, { visibleOnly = false } = {}) {
     contexts.push({ name: "iframe", root: frame });
   }
   for (const { name, root } of contexts) {
-    for (const sel of ROW_SELECTORS) {
+    try {
+    const inner = await page.locator(".person-list-item button").count();
+    log.info(`Debug: ".person-list-item button" count=${inner}`);
+  } catch { /* ignore */ }
+  for (const sel of ROW_SELECTORS) {
       try {
         const loc = root.locator(sel);
         const total = await loc.count();
@@ -231,9 +239,9 @@ async function countPersonRows(page, { visibleOnly = false } = {}) {
   return best;
 }
 
-/** Heuristic: page looks like a login screen, not the member list. */
+/** Heuristic: page looks like a dedicated login screen (not just a list with a header link). */
 async function looksLikeLoginPage(page) {
-  const rows = await countPersonRows(page, { visibleOnly: true });
+  const rows = await countPersonRows(page, { visibleOnly: false });
   if (rows.count > 0) return false;
 
   let path = "";
@@ -245,15 +253,8 @@ async function looksLikeLoginPage(page) {
   if (LOGIN_PATH_HINTS.test(path)) return true;
 
   try {
-    const pw = page.locator('input[type="password"]:visible');
-    if ((await pw.count()) > 0) return true;
-  } catch {
-    /* ignore */
-  }
-
-  try {
-    const signIn = page.getByRole("button", { name: /sign\s*in|log\s*in/i });
-    if ((await signIn.count()) > 0) return true;
+    const pw = page.locator('input[type="password"]');
+    if ((await pw.count()) > 0 && (await pw.first().isVisible().catch(() => false))) return true;
   } catch {
     /* ignore */
   }
@@ -285,19 +286,21 @@ async function debugListDetection(page, args) {
   }
 }
 
-/** True when we can see the real people list (at least one visible member row). */
+/** True when the member list is present (DOM counts — not only Playwright "visible"). */
 async function isMemberListReady(page, listReadySelector) {
   if (listReadySelector) {
     try {
       const loc = page.locator(listReadySelector).first();
-      if ((await loc.count()) === 0) return false;
-      return await loc.isVisible().catch(() => true);
+      await loc.waitFor({ state: "attached", timeout: 2000 });
+      return (await loc.count()) > 0;
     } catch {
       return false;
     }
   }
-  const { count } = await countPersonRows(page, { visibleOnly: true });
-  return count > 0;
+  const dom = await countPersonRows(page, { visibleOnly: false });
+  if (dom.count > 0) return true;
+  const vis = await countPersonRows(page, { visibleOnly: true });
+  return vis.count > 0;
 }
 
 /** Wait up to waitMs for rows to appear without reloading the page. */
@@ -330,12 +333,11 @@ async function waitForMemberList(app, args, { phase = "startup" } = {}) {
 
   log.info(
     phase === "startup"
-      ? "Waiting for you to log in. Use the Chrome window — the script will start automatically once the member list appears."
-      : "Member list not visible (login may have expired). Log in again in Chrome; waiting for the list...",
+      ? "Opening your list page. If you are already logged in, the script will start as soon as it sees member rows."
+      : "Waiting for the member list to appear again...",
   );
   log.info(`List URL: ${args.list}`);
   log.info(`Chrome profile (sessions are saved here): ${args.profile}`);
-  log.info("Tip: the page will not be refreshed repeatedly — finish login, then let the list load.");
 
   for (;;) {
     await app.bringToFront();
@@ -343,13 +345,11 @@ async function waitForMemberList(app, args, { phase = "startup" } = {}) {
     if (!didInitialGoto || !urlsRoughlyMatch(app.url(), args.list)) {
       await app.goto(args.list, { waitUntil: "load", timeout: 60000 }).catch(() => {});
       didInitialGoto = true;
-      await waitForListOnPage(app, args, args.listDetectSec * 1000);
-    } else {
-      await waitForListOnPage(app, args, 3000);
     }
 
-    if (await isMemberListReady(app, args.listReady)) {
-      const info = await countPersonRows(app, { visibleOnly: true });
+    const found = await waitForListOnPage(app, args, args.listDetectSec * 1000);
+    if (found || (await isMemberListReady(app, args.listReady))) {
+      const info = await countPersonRows(app, { visibleOnly: false });
       log.ok(
         `Member list detected (${info.count} row(s) via "${info.selector}"${info.frame !== "main" ? " in " + info.frame : ""}). Starting.`,
       );
@@ -370,12 +370,18 @@ async function waitForMemberList(app, args, { phase = "startup" } = {}) {
     if (Date.now() - lastLog > 8000) {
       lastLog = Date.now();
       const onLogin = await looksLikeLoginPage(app);
-      const info = await countPersonRows(app, { visibleOnly: true });
-      const hint = onLogin
-        ? "Looks like a login page — finish signing in in the Chrome tab."
-        : info.count === 0
-          ? "List not detected yet — wait for rows to finish loading (page is not being refreshed)."
-          : "Still waiting for a visible member row...";
+      const dom = await countPersonRows(app, { visibleOnly: false });
+      const vis = await countPersonRows(app, { visibleOnly: true });
+      let hint;
+      if (onLogin) {
+        hint = "Looks like a login page — sign in in the Chrome tab.";
+      } else if (dom.count > 0 && vis.count === 0) {
+        hint = `Found ${dom.count} row(s) in the page but automation cannot see them as visible — continuing anyway on next check.`;
+      } else if (dom.count === 0) {
+        hint = "Cannot find .person-list-item rows yet — wait for the list to load (page is not being refreshed).";
+      } else {
+        hint = "Still checking for the member list...";
+      }
       const left = Math.ceil((timeoutMs - elapsed) / 60000);
       log.step(`${hint} (${left} min left)`);
       if (args.debugList) await debugListDetection(app, args);
@@ -460,7 +466,12 @@ async function openNextNotStarted(app, processedKeys) {
     processedKeys.add(key);
 
     const name = (await safeText(row.locator(SEL.rowName).nth(1))) || "Unknown";
-    await humanClick(app, row);
+    const clickTarget = row.locator("button").first();
+    if ((await clickTarget.count()) > 0) {
+      await humanClick(app, clickTarget);
+    } else {
+      await humanClick(app, row);
+    }
     await waitForPersonPage(app);
     return { name };
   }
@@ -601,8 +612,20 @@ export async function main(argv) {
         return summary;
       }
     } else {
+      log.info("Skipping login wait (--skip-login-wait / --already-logged-in).");
       await app.goto(args.list, { waitUntil: "load", timeout: 60000 }).catch(() => {});
-      await waitForListOnPage(app, args, args.listDetectSec * 1000);
+      const ok = await waitForListOnPage(app, args, args.listDetectSec * 1000);
+      if (!ok && !(await isMemberListReady(app, args.listReady))) {
+        log.err(
+          "Member list not detected. Try without --skip-login-wait, or run with --debug-list.",
+        );
+        if (args.debugList) await debugListDetection(app, args);
+        summary.stoppedReason = "list-not-detected";
+        keepBrowserOpen = true;
+        return summary;
+      }
+      const info = await countPersonRows(app, { visibleOnly: false });
+      log.ok(`Member list detected (${info.count} row(s)).`);
     }
 
     const processedKeys = new Set();
@@ -786,7 +809,10 @@ export function parseArgs(argv) {
       case "--max": args.max = Number(next()) || 0; break;
       case "--min-gap": args.minGap = Number(next()) || 0; break;
       case "--max-gap": args.maxGap = Number(next()) || 0; break;
-      case "--skip-login-wait": args.skipLoginWait = true; break;
+      case "--skip-login-wait":
+      case "--already-logged-in":
+        args.skipLoginWait = true;
+        break;
       case "--keep-open": args.keepOpen = true; break;
       case "--debug-list": args.debugList = true; break;
       case "--list-detect-sec": args.listDetectSec = Number(next()) || 45; break;
@@ -827,7 +853,8 @@ function printHelp() {
       "  --keep-open            always leave Chrome open when the script exits",
       "  --debug-list           log URL and selector counts while waiting",
       "  --list-detect-sec <n>  seconds to wait for rows after load (default 45)",
-      "  --skip-login-wait      for automated tests only — do not use for real runs",
+      "  --skip-login-wait      skip the login wait (use when already logged in)",
+      "  --already-logged-in    same as --skip-login-wait",
       "  --dry-run              plan only; send/submit nothing",
       "  --max <n>              stop after n sends",
       "  --profile <dir>        Chrome profile (default ./chrome-profile)",
